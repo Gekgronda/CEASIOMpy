@@ -16,6 +16,15 @@ Python version: >=3.8
 #   IMPORTS
 # =================================================================================================
 
+import sys
+import os
+
+# Aggiungi il percorso alla directory CEASIOMpy
+sys.path.append(os.path.abspath("/home/cfse/Stage_Gronda/CEASIOMpy"))
+
+# Ora importa i moduli
+from ceasiompy.CLCalculator.clcalculator import calculate_cl, get_cl
+
 from pathlib import Path
 
 from ceasiompy.CLCalculator.clcalculator import calculate_cl, get_cl
