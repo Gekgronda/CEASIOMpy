@@ -18,25 +18,29 @@ class MultiOutputKriging:
         self.y_cl = self.df["Total CL"].values
         self.y_cd = self.df["Total CD"].values
 
-        X_train, X_temp, y_cl_train, y_cl_temp = train_test_split(
+        self.X_train, X_temp, self.y_cl_train, y_cl_temp = train_test_split(
             self.X, self.y_cl, test_size=test_size, random_state=random_state
         )
         self.X_val, self.X_test, self.y_cl_val, self.y_cl_test = train_test_split(
             X_temp, y_cl_temp, test_size=0.9, random_state=random_state
         )
 
-        X_train, X_temp, y_cd_train, y_cd_temp = train_test_split(
+        self.X_train, X_temp, self.y_cd_train, y_cd_temp = train_test_split(
             self.X, self.y_cd, test_size=test_size, random_state=random_state
         )
         self.X_val, self.X_test, self.y_cd_val, self.y_cd_test = train_test_split(
             X_temp, y_cd_temp, test_size=0.9, random_state=random_state
         )
 
-        self.ndim = X_train.shape[1]
+        self.ndim = self.X_train.shape[1]
 
         # Modelli iniziali
-        self.model_cl = KRG(theta0=[1e-2] * self.ndim, print_global=False)
-        self.model_cd = KRG(theta0=[1e-2] * self.ndim, print_global=False)
+        self.model_cl = KRG(
+            theta0=[1e-2] * self.ndim, corr="matern32", poly="linear", print_global=False
+        )
+        self.model_cd = KRG(
+            theta0=[1e-2] * self.ndim, corr="matern32", poly="linear", print_global=False
+        )
 
     def fit(self, X_train, y_cl_train, y_cd_train, theta=None, corr=None, poly=None):
         """Train models for CL and CD."""
@@ -79,11 +83,11 @@ class MultiOutputKriging:
         with open(filename, "wb") as f:
             pickle.dump(self, f)
 
-    @staticmethod
-    def load(filename):
-        """Carica il modello salvato da file."""
-        with open(filename, "rb") as f:
-            return pickle.load(f)
+    # @staticmethod
+    # def load(filename):
+    #     """Carica il modello salvato da file."""
+    #     with open(filename, "rb") as f:
+    #         return pickle.load(f)
 
     def evaluate(self, X_test, y_test_cl, y_test_cd):
         """Evaluate the model and compare predictions with test data."""
@@ -191,7 +195,7 @@ class MultiOutputKriging:
 
 
 # Specifica il percorso del file CSV
-file_path = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/gg_td.csv"
+file_path = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/gg_td2.csv"
 
 # Crea un'istanza della classe
 model = MultiOutputKriging(file_path)
@@ -202,7 +206,14 @@ corr_value = "matern32"  # Esempio di tipo di correlazione
 poly_value = "linear"  # Esempio di grado del polinomio
 
 # Addestra il modello
-model.fit(model.X, model.y_cl, model.y_cd, theta=theta_values, corr=corr_value, poly=poly_value)
+model.fit(
+    model.X_train,
+    model.y_cl_train,
+    model.y_cd_train,
+    theta=theta_values,
+    corr=corr_value,
+    poly=poly_value,
+)
 
 # Valuta il modello
 model.evaluate(model.X_val, model.y_cl_val, model.y_cd_val)
