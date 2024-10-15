@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 
 class MultiOutputKriging:
-    def __init__(self, test_size=0.3, random_state=10):
+    def __init__(self, test_size=0.3, random_state=42):
         # Carica il dataset dal file CSV
         self.test_size = test_size
         self.random_state = random_state
@@ -38,25 +38,29 @@ class MultiOutputKriging:
 
         self.ndim = X_train.shape[1]
 
-        # Inizializzazione dei modelli se theta è specificato
-        if theta is not None:
-            self.model_cl = KRG(theta0=theta, print_global=False)
-            self.model_cd = KRG(theta0=theta, print_global=False)
+        # # Inizializzazione dei modelli se theta è specificato
+        # if theta is not None:
+        #     self.model_cl = KRG(theta0=theta, print_global=False)
+        #     self.model_cd = KRG(theta0=theta, print_global=False)
 
-        # Se corr o poly sono specificati, ricrea i modelli con i nuovi parametri
-        if corr is not None or poly is not None:
-            self.model_cl = KRG(
-                theta0=self.model_cl.options["theta0"],
-                corr=corr if corr is not None else self.model_cl.options.get("corr"),
-                poly=poly if poly is not None else self.model_cl.options.get("poly"),
-                print_global=False,
-            )
-            self.model_cd = KRG(
-                theta0=self.model_cd.options["theta0"],
-                corr=corr if corr is not None else self.model_cd.options.get("corr"),
-                poly=poly if poly is not None else self.model_cd.options.get("poly"),
-                print_global=False,
-            )
+        # # Se corr o poly sono specificati, ricrea i modelli con i nuovi parametri
+        # if corr is not None or poly is not None:
+        #     self.model_cl = KRG(
+        #         theta0=self.model_cl.options["theta0"],
+        #         corr=corr if corr is not None else self.model_cl.options.get("corr"),
+        #         poly=poly if poly is not None else self.model_cl.options.get("poly"),
+        #         print_global=False,
+        #     )
+        #     self.model_cd = KRG(
+        #         theta0=self.model_cd.options["theta0"],
+        #         corr=corr if corr is not None else self.model_cd.options.get("corr"),
+        #         poly=poly if poly is not None else self.model_cd.options.get("poly"),
+        #         print_global=False,
+        #     )
+
+        # Inizializzazione dei modelli per CL e CD
+        self.model_cl = KRG(theta0=theta, corr=corr, poly=poly, print_global=False)
+        self.model_cd = KRG(theta0=theta, corr=corr, poly=poly, print_global=False)
 
         # Imposta i valori di addestramento
         self.model_cl.set_training_values(X_train, y_cl_train)
