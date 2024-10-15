@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 
 class MultiOutputKriging:
-    def __init__(self, file_path, test_size=0.3, random_state=10):
+    def __init__(self, file_path, test_size=0.3, random_state=42):
         # Carica il dataset dal file CSV
         self.df = pd.read_csv(file_path)
 
@@ -22,14 +22,14 @@ class MultiOutputKriging:
             self.X, self.y_cl, test_size=test_size, random_state=random_state
         )
         self.X_val, self.X_test, self.y_cl_val, self.y_cl_test = train_test_split(
-            X_temp, y_cl_temp, test_size=0.5, random_state=random_state
+            X_temp, y_cl_temp, test_size=0.9, random_state=random_state
         )
 
         X_train, X_temp, y_cd_train, y_cd_temp = train_test_split(
             self.X, self.y_cd, test_size=test_size, random_state=random_state
         )
         self.X_val, self.X_test, self.y_cd_val, self.y_cd_test = train_test_split(
-            X_temp, y_cd_temp, test_size=0.5, random_state=random_state
+            X_temp, y_cd_temp, test_size=0.9, random_state=random_state
         )
 
         self.ndim = X_train.shape[1]
@@ -146,9 +146,52 @@ class MultiOutputKriging:
         plt.tight_layout()
         plt.show()
 
+    def sensitivity_analysis(self, X_base, y_base_cl, y_base_cd, parameter_indices, delta=0.1):
+        """
+        Esegui un'analisi della sensibilità utilizzando il metodo OAT.
+
+        Args:
+            X_base: Input base per le predizioni.
+            y_base_cl: Valori di CL corrispondenti.
+            y_base_cd: Valori di CD corrispondenti.
+            parameter_indices: Indici dei parametri da analizzare.
+            delta: Variazione percentuale da applicare ai parametri (default=0.1 per il 10%).
+
+        Returns:
+            results: Un dizionario con i risultati delle predizioni e degli errori.
+        """
+        results = {}
+
+        # Esegui predizioni per i valori base
+        base_cl_pred, base_cd_pred = self.predict(X_base)
+
+        for index in parameter_indices:
+            # Copia X_base per modificare il parametro specificato
+            X_test = np.copy(X_base)
+
+            # Calcola il nuovo valore del parametro
+            perturbed_value = X_test[:, index] * (1 + delta)  # Aumenta del delta
+            X_test[:, index] = perturbed_value
+
+            # Esegui predizioni con il nuovo valore del parametro
+            cl_pred_perturbed, cd_pred_perturbed = self.predict(X_test)
+
+            # Calcola l'errore
+            mse_cl = mean_squared_error(y_base_cl, cl_pred_perturbed)
+            mse_cd = mean_squared_error(y_base_cd, cd_pred_perturbed)
+
+            results[f"Parameter {index} MSE CL (perturbed)"] = mse_cl
+            results[f"Parameter {index} MSE CD (perturbed)"] = mse_cd
+
+            # Stampa i risultati
+            print(f"Parameter {index} perturbed (delta={delta*100}%):")
+            print(f"MSE CL: {mse_cl}, MSE CD: {mse_cd}\n")
+
+        return results
+
 
 # Specifica il percorso del file CSV
-file_path = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/training_data.csv"
+file_path = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/gg_td.csv"
 
 # Crea un'istanza della classe
 model = MultiOutputKriging(file_path)
@@ -167,6 +210,9 @@ model.evaluate(model.X_val, model.y_cl_val, model.y_cd_val)
 # Visualizza le predizioni
 model.plot_predictions(model.X, model.y_cl, model.y_cd)
 
+# Esegui l'analisi della sensibilità
+parameter_indices = [0, 1, 2, 3]  # Indici dei parametri: Altitude, Mach number, AoA, AoS
+model.sensitivity_analysis(model.X_val, model.y_cl_val, model.y_cd_val, parameter_indices)
 
 model_directory = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/"
 model_filename = "multi_output_kriging_model.pkl"

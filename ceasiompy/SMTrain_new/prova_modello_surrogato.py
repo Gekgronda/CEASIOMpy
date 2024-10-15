@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 class MultiOutputKriging:
     def __init__(self, df, test_size=0.3, random_state=10):
+
         self.X = df[
             ["Altitude", "Mach number", "Angle of attack (AoA)", "Angle of sideslip (AoS)"]
         ].values
