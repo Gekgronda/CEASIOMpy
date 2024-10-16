@@ -7,135 +7,106 @@ import pickle
 import matplotlib.pyplot as plt
 
 
-class MultiOutputKriging:
-    def __init__(self, test_size=0.3, random_state=42):
-        # Carica il dataset dal file CSV
-        self.test_size = test_size
-        self.random_state = random_state
-        self.model_cl = None
-        self.model_cd = None
-        self.ndim = None
-        self.cl_pred = None
-        self.cd_pred = None
+# Funzione per addestrare i modelli per CL e CD
+def fit(X, y_cl, y_cd, theta, corr, poly, test_size=0.3, random_state=42):
+    """Train models for CL and CD."""
+    X_train, X_temp, y_cl_train, y_cl_temp = train_test_split(
+        X, y_cl, test_size=test_size, random_state=random_state
+    )
+    X_val, X_test, y_cl_val, y_cl_test = train_test_split(
+        X_temp, y_cl_temp, test_size=0.9, random_state=random_state
+    )
 
-    def fit(self, X, y_cl, y_cd, theta, corr, poly):
-        """Train models for CL and CD."""
-        self.X = X
-        self.y_cl = y_cl
-        self.y_cd = y_cd
+    _, X_temp, y_cd_train, y_cd_temp = train_test_split(
+        X, y_cd, test_size=test_size, random_state=random_state
+    )
+    X_val, X_test, y_cd_val, y_cd_test = train_test_split(
+        X_temp, y_cd_temp, test_size=0.9, random_state=random_state
+    )
 
-        X_train, X_temp, y_cl_train, y_cl_temp = train_test_split(
-            X, y_cl, test_size=self.test_size, random_state=self.random_state
-        )
-        self.X_val, self.X_test, self.y_cl_val, self.y_cl_test = train_test_split(
-            X_temp, y_cl_temp, test_size=0.9, random_state=self.random_state
-        )
+    ndim = X_train.shape[1]
 
-        _, X_temp, y_cd_train, y_cd_temp = train_test_split(
-            X, y_cd, test_size=self.test_size, random_state=self.random_state
-        )
-        self.X_val, self.X_test, self.y_cd_val, self.y_cd_test = train_test_split(
-            X_temp, y_cd_temp, test_size=0.9, random_state=self.random_state
-        )
+    # Inizializzazione dei modelli per CL e CD
+    model_cl = KRG(theta0=theta, corr=corr, poly=poly, print_global=False)
+    model_cd = KRG(theta0=theta, corr=corr, poly=poly, print_global=False)
 
-        self.ndim = X_train.shape[1]
+    # Imposta i valori di addestramento
+    model_cl.set_training_values(X_train, y_cl_train)
+    model_cd.set_training_values(X_train, y_cd_train)
 
-        # # Inizializzazione dei modelli se theta è specificato
-        # if theta is not None:
-        #     self.model_cl = KRG(theta0=theta, print_global=False)
-        #     self.model_cd = KRG(theta0=theta, print_global=False)
+    # Addestra i modelli
+    model_cl.train()
+    model_cd.train()
 
-        # # Se corr o poly sono specificati, ricrea i modelli con i nuovi parametri
-        # if corr is not None or poly is not None:
-        #     self.model_cl = KRG(
-        #         theta0=self.model_cl.options["theta0"],
-        #         corr=corr if corr is not None else self.model_cl.options.get("corr"),
-        #         poly=poly if poly is not None else self.model_cl.options.get("poly"),
-        #         print_global=False,
-        #     )
-        #     self.model_cd = KRG(
-        #         theta0=self.model_cd.options["theta0"],
-        #         corr=corr if corr is not None else self.model_cd.options.get("corr"),
-        #         poly=poly if poly is not None else self.model_cd.options.get("poly"),
-        #         print_global=False,
-        #     )
+    return model_cl, model_cd, X_test, y_cl_test, y_cd_test
 
-        # Inizializzazione dei modelli per CL e CD
-        self.model_cl = KRG(theta0=theta, corr=corr, poly=poly, print_global=False)
-        self.model_cd = KRG(theta0=theta, corr=corr, poly=poly, print_global=False)
 
-        # Imposta i valori di addestramento
-        self.model_cl.set_training_values(X_train, y_cl_train)
-        self.model_cd.set_training_values(X_train, y_cd_train)
+# Funzione per fare previsioni sui dati di test
+def predict(model_cl, model_cd, X_test):
+    """Make predictions for CL and CD."""
+    cl_pred = model_cl.predict_values(X_test)
+    cd_pred = model_cd.predict_values(X_test)
+    return cl_pred, cd_pred
 
-        # Addestra i modelli
-        self.model_cl.train()
-        self.model_cd.train()
 
-    def predict(self, X_test):
-        """Make predictions for CL and CD."""
-        self.cl_pred = self.model_cl.predict_values(X_test)
-        self.cd_pred = self.model_cd.predict_values(X_test)
-        return self.cl_pred, self.cd_pred
+# Funzione per valutare i modelli
+def evaluate(y_test_cl, y_test_cd, cl_pred, cd_pred):
+    """Evaluate the model and compare predictions with test data."""
+    # Calcolo MSE e MAE per CL
+    mse_cl = mean_squared_error(y_test_cl, cl_pred)
+    mae_cl = mean_absolute_error(y_test_cl, cl_pred)
 
-    def evaluate(self, y_test_cl, y_test_cd):
-        """Evaluate the model and compare predictions with test data."""
-        if self.cl_pred is None or self.cd_pred is None:
-            raise ValueError("You need to make predictions first by calling the 'predict' method.")
+    # Calcolo MSE e MAE per CD
+    mse_cd = mean_squared_error(y_test_cd, cd_pred)
+    mae_cd = mean_absolute_error(y_test_cd, cd_pred)
 
-        # Calcolo MSE e MAE per CL
-        mse_cl = mean_squared_error(y_test_cl, self.cl_pred)
-        mae_cl = mean_absolute_error(y_test_cl, self.cl_pred)
+    # Print results
+    print("Errors for CL:")
+    print(f"Mean Squared Error (CL): {mse_cl}")
+    print(f"Mean Absolute Error (CL): {mae_cl}")
 
-        # Calcolo MSE e MAE per CD
-        mse_cd = mean_squared_error(y_test_cd, self.cd_pred)
-        mae_cd = mean_absolute_error(y_test_cd, self.cd_pred)
+    print("\nErrors for CD:")
+    print(f"Mean Squared Error (CD): {mse_cd}")
+    print(f"Mean Absolute Error (CD): {mae_cd}")
 
-        # Print results
-        print("Errors for CL:")
-        print(f"Mean Squared Error (CL): {mse_cl}")
-        print(f"Mean Absolute Error (CL): {mae_cl}")
+    return {"mse_cl": mse_cl, "mae_cl": mae_cl, "mse_cd": mse_cd, "mae_cd": mae_cd}
 
-        print("\nErrors for CD:")
-        print(f"Mean Squared Error (CD): {mse_cd}")
-        print(f"Mean Absolute Error (CD): {mae_cd}")
 
-        return {"mse_cl": mse_cl, "mae_cl": mae_cl, "mse_cd": mse_cd, "mae_cd": mae_cd}
+# Funzione per plottare i risultati
+def plot_predictions(y_test_cl, y_test_cd, cl_pred, cd_pred):
+    """Plot the predicted vs actual values for CL and CD."""
 
-    def plot_predictions(self, y_test_cl, y_test_cd):
-        """Plot the predicted vs actual values for CL and CD."""
+    # Creazione dei grafici
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
-        # Creazione dei grafici
-        fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+    # Grafico per CL
+    axs[0].scatter(y_test_cl, cl_pred, color="blue", alpha=0.5)
+    axs[0].plot(
+        [y_test_cl.min(), y_test_cl.max()],
+        [y_test_cl.min(), y_test_cl.max()],
+        "r--",
+        lw=2,
+    )
+    axs[0].set_title("Predicted vs Actual CL")
+    axs[0].set_xlabel("Actual CL")
+    axs[0].set_ylabel("Predicted CL")
+    axs[0].grid()
 
-        # Grafico per CL
-        axs[0].scatter(y_test_cl, self.cl_pred, color="blue", alpha=0.5)
-        axs[0].plot(
-            [y_test_cl.min(), y_test_cl.max()],
-            [y_test_cl.min(), y_test_cl.max()],
-            "r--",
-            lw=2,
-        )
-        axs[0].set_title("Predicted vs Actual CL")
-        axs[0].set_xlabel("Actual CL")
-        axs[0].set_ylabel("Predicted CL")
-        axs[0].grid()
+    # Grafico per CD
+    axs[1].scatter(y_test_cd, cd_pred, color="green", alpha=0.5)
+    axs[1].plot(
+        [y_test_cd.min(), y_test_cd.max()],
+        [y_test_cd.min(), y_test_cd.max()],
+        "r--",
+        lw=2,
+    )
+    axs[1].set_title("Predicted vs Actual CD")
+    axs[1].set_xlabel("Actual CD")
+    axs[1].set_ylabel("Predicted CD")
+    axs[1].grid()
 
-        # Grafico per CD
-        axs[1].scatter(y_test_cd, self.cd_pred, color="green", alpha=0.5)
-        axs[1].plot(
-            [y_test_cd.min(), y_test_cd.max()],
-            [y_test_cd.min(), y_test_cd.max()],
-            "r--",
-            lw=2,
-        )
-        axs[1].set_title("Predicted vs Actual CD")
-        axs[1].set_xlabel("Actual CD")
-        axs[1].set_ylabel("Predicted CD")
-        axs[1].grid()
-
-        plt.tight_layout()
-        plt.show()
+    plt.tight_layout()
+    plt.show()
 
     # PER SALVARE E RIUTILIZZARE IL MODELLO
     # def save(self, filename):
