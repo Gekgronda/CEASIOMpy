@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 from smt.surrogate_models import KRG
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error
@@ -8,7 +9,7 @@ import matplotlib.pyplot as plt
 
 
 # Funzione per addestrare i modelli per CL e CD
-def fit(X, y_cl, y_cd, theta, corr, poly, test_size=0.3, random_state=42):
+def fit_model(X, y_cl, y_cd, theta, corr, poly, test_size=0.3, random_state=42):
     """Train models for CL and CD."""
     X_train, X_temp, y_cl_train, y_cl_temp = train_test_split(
         X, y_cl, test_size=test_size, random_state=random_state
@@ -42,7 +43,7 @@ def fit(X, y_cl, y_cd, theta, corr, poly, test_size=0.3, random_state=42):
 
 
 # Funzione per fare previsioni sui dati di test
-def predict(model_cl, model_cd, X_test):
+def predict_model(model_cl, model_cd, X_test):
     """Make predictions for CL and CD."""
     cl_pred = model_cl.predict_values(X_test)
     cd_pred = model_cd.predict_values(X_test)
@@ -50,7 +51,7 @@ def predict(model_cl, model_cd, X_test):
 
 
 # Funzione per valutare i modelli
-def evaluate(y_test_cl, y_test_cd, cl_pred, cd_pred):
+def evaluate_model(y_test_cl, y_test_cd, cl_pred, cd_pred):
     """Evaluate the model and compare predictions with test data."""
     # Calcolo MSE e MAE per CL
     mse_cl = mean_squared_error(y_test_cl, cl_pred)
@@ -108,17 +109,21 @@ def plot_predictions(y_test_cl, y_test_cd, cl_pred, cd_pred):
     plt.tight_layout()
     plt.show()
 
-    # PER SALVARE E RIUTILIZZARE IL MODELLO
-    # def save(self, filename):
-    #     """Save the entire model to file."""
-    #     with open(filename, "wb") as f:
-    #         pickle.dump(self, f)
 
-    # @staticmethod
-    # def load(filename):
-    #     """Carica il modello salvato da file."""
-    #     with open(filename, "rb") as f:
-    #         return pickle.load(f)
+def combine_models(model_cl, model_cd):
+    """Combine CL and CD models into a single dictionary."""
+    return {"model_cl": model_cl, "model_cd": model_cd}
+
+
+# Funzione per salvare il modello
+def save_model(model, filename):
+    # Verifica che la directory esista, altrimenti la crea
+    directory = os.path.dirname(filename)
+    if directory and not os.path.exists(directory):
+        os.makedirs(directory)
+    with open(filename, "wb") as f:
+        pickle.dump(model, f)
+    print(f"Model saved succesfully into {filename}")
 
 
 # # Specifica il percorso del file CSV
