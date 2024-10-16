@@ -120,8 +120,8 @@ def save_to_csv(data, filename):
 
 
 # Example
-# base_path = input("Insert directory path: ")
-base_path = "/home/cfse/Stage_Gronda/CEASIOMpy/WKDIR/Workflow_027/Results/SU2"
+base_path = input("Insert directory path: ")
+# base_path = "/home/cfse/Stage_Gronda/CEASIOMpy/WKDIR/Workflow_027/Results/SU2"
 extract_values = coefficent_extraction_from_directories(base_path)
 
 # Salva i valori estratti in un file CSV

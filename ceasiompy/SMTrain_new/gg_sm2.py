@@ -15,8 +15,10 @@ class MultiOutputKriging:
         self.model_cl = None
         self.model_cd = None
         self.ndim = None
+        self.cl_pred = None
+        self.cd_pred = None
 
-    def fit(self, X, y_cl, y_cd, theta=None, corr=None, poly=None):
+    def fit(self, X, y_cl, y_cd, theta, corr, poly):
         """Train models for CL and CD."""
         self.X = X
         self.y_cl = y_cl
@@ -26,14 +28,14 @@ class MultiOutputKriging:
             X, y_cl, test_size=self.test_size, random_state=self.random_state
         )
         self.X_val, self.X_test, self.y_cl_val, self.y_cl_test = train_test_split(
-            X_temp, y_cl_temp, test_size=0.5, random_state=self.random_state
+            X_temp, y_cl_temp, test_size=0.9, random_state=self.random_state
         )
 
         _, X_temp, y_cd_train, y_cd_temp = train_test_split(
             X, y_cd, test_size=self.test_size, random_state=self.random_state
         )
         self.X_val, self.X_test, self.y_cd_val, self.y_cd_test = train_test_split(
-            X_temp, y_cd_temp, test_size=0.5, random_state=self.random_state
+            X_temp, y_cd_temp, test_size=0.9, random_state=self.random_state
         )
 
         self.ndim = X_train.shape[1]
@@ -72,21 +74,22 @@ class MultiOutputKriging:
 
     def predict(self, X_test):
         """Make predictions for CL and CD."""
-        cl_pred = self.model_cl.predict_values(X_test)
-        cd_pred = self.model_cd.predict_values(X_test)
-        return cl_pred, cd_pred
+        self.cl_pred = self.model_cl.predict_values(X_test)
+        self.cd_pred = self.model_cd.predict_values(X_test)
+        return self.cl_pred, self.cd_pred
 
-    def evaluate(self, X_test, y_test_cl, y_test_cd):
+    def evaluate(self, y_test_cl, y_test_cd):
         """Evaluate the model and compare predictions with test data."""
-        cl_pred, cd_pred = self.predict(X_test)
+        if self.cl_pred is None or self.cd_pred is None:
+            raise ValueError("You need to make predictions first by calling the 'predict' method.")
 
         # Calcolo MSE e MAE per CL
-        mse_cl = mean_squared_error(y_test_cl, cl_pred)
-        mae_cl = mean_absolute_error(y_test_cl, cl_pred)
+        mse_cl = mean_squared_error(y_test_cl, self.cl_pred)
+        mae_cl = mean_absolute_error(y_test_cl, self.cl_pred)
 
         # Calcolo MSE e MAE per CD
-        mse_cd = mean_squared_error(y_test_cd, cd_pred)
-        mae_cd = mean_absolute_error(y_test_cd, cd_pred)
+        mse_cd = mean_squared_error(y_test_cd, self.cd_pred)
+        mae_cd = mean_absolute_error(y_test_cd, self.cd_pred)
 
         # Print results
         print("Errors for CL:")
@@ -99,20 +102,17 @@ class MultiOutputKriging:
 
         return {"mse_cl": mse_cl, "mae_cl": mae_cl, "mse_cd": mse_cd, "mae_cd": mae_cd}
 
-    def plot_predictions(self, X_train, y_train_cl, y_train_cd):
+    def plot_predictions(self, y_test_cl, y_test_cd):
         """Plot the predicted vs actual values for CL and CD."""
-        # Predizioni per i dati di addestramento
-        cl_pred = self.model_cl.predict_values(X_train)
-        cd_pred = self.model_cd.predict_values(X_train)
 
         # Creazione dei grafici
         fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
         # Grafico per CL
-        axs[0].scatter(y_train_cl, cl_pred, color="blue", alpha=0.5)
+        axs[0].scatter(y_test_cl, self.cl_pred, color="blue", alpha=0.5)
         axs[0].plot(
-            [y_train_cl.min(), y_train_cl.max()],
-            [y_train_cl.min(), y_train_cl.max()],
+            [y_test_cl.min(), y_test_cl.max()],
+            [y_test_cl.min(), y_test_cl.max()],
             "r--",
             lw=2,
         )
@@ -122,10 +122,10 @@ class MultiOutputKriging:
         axs[0].grid()
 
         # Grafico per CD
-        axs[1].scatter(y_train_cd, cd_pred, color="green", alpha=0.5)
+        axs[1].scatter(y_test_cd, self.cd_pred, color="green", alpha=0.5)
         axs[1].plot(
-            [y_train_cd.min(), y_train_cd.max()],
-            [y_train_cd.min(), y_train_cd.max()],
+            [y_test_cd.min(), y_test_cd.max()],
+            [y_test_cd.min(), y_test_cd.max()],
             "r--",
             lw=2,
         )
@@ -137,16 +137,17 @@ class MultiOutputKriging:
         plt.tight_layout()
         plt.show()
 
-    def save(self, filename):
-        """Save the entire model to file."""
-        with open(filename, "wb") as f:
-            pickle.dump(self, f)
+    # PER SALVARE E RIUTILIZZARE IL MODELLO
+    # def save(self, filename):
+    #     """Save the entire model to file."""
+    #     with open(filename, "wb") as f:
+    #         pickle.dump(self, f)
 
-    @staticmethod
-    def load(filename):
-        """Carica il modello salvato da file."""
-        with open(filename, "rb") as f:
-            return pickle.load(f)
+    # @staticmethod
+    # def load(filename):
+    #     """Carica il modello salvato da file."""
+    #     with open(filename, "rb") as f:
+    #         return pickle.load(f)
 
 
 # # Specifica il percorso del file CSV
