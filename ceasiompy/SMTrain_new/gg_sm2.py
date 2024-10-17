@@ -3,10 +3,42 @@ import numpy as np
 import os
 from smt.surrogate_models import KRG
 from smt.utils.misc import compute_rms_error
+from smt.sampling_methods import LHS
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import pickle
 import matplotlib.pyplot as plt
+
+
+# Funzione per eseguire il Latin Hypercube Sampling sugli input
+def latin_hypercube_sampling(X, num_samples):
+    """Perform Latin Hypercube Sampling on the input data."""
+    # Definisci i limiti del campione
+    xlimits = np.array([[np.min(X[:, i]), np.max(X[:, i])] for i in range(X.shape[1])])
+
+    # Crea un oggetto LHS
+    lhs = LHS(xlimits=xlimits)
+
+    num_samples = int(num_samples)
+
+    # Genera il campionamento
+    X_lhs = lhs(num_samples)
+    return X_lhs
+
+
+# Funzione per abbinare gli output con i campioni LHS
+def match_outputs(X_lhs, X, y_cl, y_cd):
+    """Match the outputs for the sampled inputs."""
+    y_cl_lhs = []
+    y_cd_lhs = []
+
+    for sample in X_lhs:
+        # Trova il valore più vicino nel dataset originale
+        index = np.argmin(np.linalg.norm(X - sample, axis=1))
+        y_cl_lhs.append(y_cl[index])
+        y_cd_lhs.append(y_cd[index])
+
+    return np.array(y_cl_lhs), np.array(y_cd_lhs)
 
 
 # Funzione per addestrare i modelli per CL e CD

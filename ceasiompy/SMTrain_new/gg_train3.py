@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
-import os
 from ceasiompy.SMTrain_new.gg_sm2 import (
+    latin_hypercube_sampling,
+    match_outputs,
     fit_model,
     predict_model,
     evaluate_model,
@@ -11,7 +12,7 @@ from ceasiompy.SMTrain_new.gg_sm2 import (
 )
 
 # Carica il database
-name = input("Insert database name (with .csv extention): ") or "gg_td.csv"
+name = input("Insert database name (with .csv extention): ") or "dataset_500_points.csv"
 file_path = f"/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/{name}"
 df = pd.read_csv(file_path)
 # Definisci gli input e output
@@ -38,12 +39,23 @@ poly_value = (
     or "constant"
 )
 
+use_sampling = (
+    input("Do you want to apply Latin Hypercube Sampling (yes/no)? [default=yes]: ") or "yes"
+)
+
+if use_sampling.lower() == "yes":
+    num_samples = input("Insert number of samples [default=100]: ") or "100"
+    X_lhs = latin_hypercube_sampling(X, num_samples)
+    y_cl_lhs, y_cd_lhs = match_outputs(X_lhs, X, y_cl, y_cd)
+else:
+    X_lhs, y_cl_lhs, y_cd_lhs = X, y_cl, y_cd
+
+
 # Nome del modello
 # model_name = input("Insert new model filename: ")
 
-
 model_cl, model_cd, X_test, y_test_cl, y_test_cd = fit_model(
-    X, y_cl, y_cd, theta_values, corr_value, poly_value
+    X_lhs, y_cl_lhs, y_cd_lhs, theta_values, corr_value, poly_value
 )
 cl_pred, cd_pred = predict_model(model_cl, model_cd, X_test)
 errors = evaluate_model(model_cl, model_cd, X_test, y_test_cl, y_test_cd, cl_pred, cd_pred)
@@ -51,5 +63,5 @@ plot = plot_predictions(y_test_cl, y_test_cd, cl_pred, cd_pred)
 # Esempio di utilizzo
 model = combine_models(model_cl, model_cd)
 model_directory = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/"
-model_name = "model.pkl"
+model_name = "surrogate_model.pkl"
 save = save_model(model, f"{model_directory}{model_name}")
