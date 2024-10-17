@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np
-from gg_sm2 import MultiOutputKriging  # Assicurati di importare la classe
-
 
 def load_data():
     """Carica il file CSV contenente i dati di training."""
@@ -19,7 +17,7 @@ def get_model_parameters():
     theta_input = input("Insert theta value (single value, e.g., 0.1, 0.01, 0.001, 0.0001): ")
     theta_values = [
         float(theta_input)
-    ] * 4  # Supponendo che ci siano 4 dimensioni (Alt, Mach, AoA, AoS)
+    ] * 4 #Occhio qui che moltiplico per 4 perche so che ci sono 4 dimensioni
     corr_value = input("Insert correlation type (e.g., squar_exp, abs_exp, matern32, matern52): ")
     poly_value = input("Insert polynomial type (e.g., constant, linear, quadratic): ")
     return theta_values, corr_value, poly_value
@@ -27,16 +25,16 @@ def get_model_parameters():
 
 def train_model(X, y_cl, y_cd, theta, corr, poly):
     """Addestra il modello utilizzando i dati forniti."""
-    model = MultiOutputKriging()
-    model.fit(X, y_cl, y_cd, theta=theta, corr=corr, poly=poly)
+    model = fit(X, y_cl, y_cd, theta, corr, poly)
     return model
 
 
 def evaluate_model(model, X_test, y_cl_test, y_cd_test):
     """Valuta le prestazioni del modello su un set di validazione."""
-    model.evaluate(X_test, y_cl_test, y_cd_test)
+    eval = evaluate(X_test, y_cl_test, y_cd_test)
     """Plotta i valori predetti vs valori reali"""
-    model.plot_predictions(X_test, y_cl_test, y_cd_test)
+    plot = (X_test, y_cl_test, y_cd_test)
+    return eval, plot
 
 
 def get_prediction_data():

@@ -157,6 +157,18 @@ def extract_data_set(Tool):
 
     # Extract the iteration results only
     x = x[[i for i in x.columns if i.isdigit()]]
+    df = df[[i for i in df.columns if i.isdigit()]]    # Separate the input and output points
+    x = df.loc[[i for i, v in enumerate(df["type"]) if v == "des"]]
+    y = df.loc[[i for i, v in enumerate(df["type"]) if v == "obj"]]
+    df = df.loc[[i for i, v in enumerate(df["type"]) if v in ["obj", "des"]]]
+
+    df_data = df[["Name", "type", "getcmd", "setcmd"]]
+
+    df = df.set_index("Name")
+    y = y.set_index("Name")
+
+    # Extract the iteration results only
+    x = x[[i for i in x.columns if i.isdigit()]]
     df = df[[i for i in df.columns if i.isdigit()]]
 
     # Add user-specified objectives

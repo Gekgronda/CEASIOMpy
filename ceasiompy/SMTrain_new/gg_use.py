@@ -1,26 +1,40 @@
 import pickle
-import smt
 import numpy as np
-from smt.surrogate_models import KRG
+import os
 
-sm2 = None
-filename = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/model.pkl"
-with open(filename, "rb") as f:
-    loaded_data = pickle.load(f)
 
-# Se il file contiene un dizionario, estrai il modello
-if isinstance(loaded_data, dict):
-    sm2 = loaded_data.get("model")  # Assumi che il modello sia sotto la chiave 'model'
-else:
-    sm2 = loaded_data
+# Funzione per caricare il modello salvato
+def load_model(filename):
+    """Carica il modello salvato da file."""
+    if not os.path.exists(filename):
+        raise FileNotFoundError(f"Il file {filename} non esiste.")
+    with open(filename, "rb") as f:
+        model = pickle.load(f)
+    return model
 
-# Verifica che il modello sia un'istanza di KRG
-if sm2 is None or not hasattr(sm2, "predict_values"):
-    raise ValueError("Il modello Kriging non è stato trovato o non è valido!")
 
-# Prepara i dati come un array bidimensionale
-data = np.array([[100, 0.5, 1, 1]])  # Dati di input come array 2D
+# Funzione per fare previsioni
+def make_predictions(model, input_data):
+    """Fai previsioni per CL e CD utilizzando il modello caricato."""
+    model_cl = model["model_cl"]
+    model_cd = model["model_cd"]
 
-# Effettua la predizione
-prediction = sm2.predict_values(data)
-print(prediction)
+    cl_pred = model_cl.predict_values(input_data)
+    cd_pred = model_cd.predict_values(input_data)
+
+    return cl_pred, cd_pred
+
+
+# Carica il modello
+model_filename = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/model.pkl"
+model = load_model(model_filename)
+
+# Dati di input per la previsione
+input_data = np.array([[10001, 0.5, 3, 3]])  # Cambia i valori in base alle tue necessità
+
+# Esegui la previsione
+cl_prediction, cd_prediction = make_predictions(model, input_data)
+
+# Stampa i risultati
+print(f"Predizione di CL: {cl_prediction}")
+print(f"Predizione di CD: {cd_prediction}")

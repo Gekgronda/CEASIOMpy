@@ -15,7 +15,7 @@ name = input("Insert database name (with .csv extention): ") or "gg_td.csv"
 file_path = f"/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/{name}"
 df = pd.read_csv(file_path)
 # Definisci gli input e output
-X = df[["Altitude", "Mach number", "Angle of attack (AoA)", "Angle of sideslip (AoS)"]].values
+X = df[["altitude", "machNumber", "angleOfAttack", "angleOfSideslip"]].values
 y_cl = df["Total CL"].values
 y_cd = df["Total CD"].values
 
@@ -46,7 +46,7 @@ model_cl, model_cd, X_test, y_test_cl, y_test_cd = fit_model(
     X, y_cl, y_cd, theta_values, corr_value, poly_value
 )
 cl_pred, cd_pred = predict_model(model_cl, model_cd, X_test)
-errors = evaluate_model(y_test_cl, y_test_cd, cl_pred, cd_pred)
+errors = evaluate_model(model_cl, model_cd, X_test, y_test_cl, y_test_cd, cl_pred, cd_pred)
 plot = plot_predictions(y_test_cl, y_test_cd, cl_pred, cd_pred)
 # Esempio di utilizzo
 model = combine_models(model_cl, model_cd)

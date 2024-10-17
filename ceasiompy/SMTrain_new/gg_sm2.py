@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 from smt.surrogate_models import KRG
+from smt.utils.misc import compute_rms_error
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import pickle
@@ -51,26 +52,36 @@ def predict_model(model_cl, model_cd, X_test):
 
 
 # Funzione per valutare i modelli
-def evaluate_model(y_test_cl, y_test_cd, cl_pred, cd_pred):
+def evaluate_model(model_cl, model_cd, X_test, y_test_cl, y_test_cd, cl_pred, cd_pred):
     """Evaluate the model and compare predictions with test data."""
     # Calcolo MSE e MAE per CL
+    rms_cl = compute_rms_error(model_cl, X_test, y_test_cl)
     mse_cl = mean_squared_error(y_test_cl, cl_pred)
     mae_cl = mean_absolute_error(y_test_cl, cl_pred)
 
     # Calcolo MSE e MAE per CD
+    rms_cd = compute_rms_error(model_cd, X_test, y_test_cd)
     mse_cd = mean_squared_error(y_test_cd, cd_pred)
     mae_cd = mean_absolute_error(y_test_cd, cd_pred)
 
     # Print results
     print("Errors for CL:")
+    print(f"Root Mean Squared Error (CL): {rms_cl}")
     print(f"Mean Squared Error (CL): {mse_cl}")
     print(f"Mean Absolute Error (CL): {mae_cl}")
 
     print("\nErrors for CD:")
+    print(f"Root Mean Squared Error (CD): {rms_cd}")
     print(f"Mean Squared Error (CD): {mse_cd}")
     print(f"Mean Absolute Error (CD): {mae_cd}")
 
-    return {"mse_cl": mse_cl, "mae_cl": mae_cl, "mse_cd": mse_cd, "mae_cd": mae_cd}
+    return {
+        "rms_cl": rms_cl,
+        "mse_cl": mse_cl,
+        "mae_cl": mae_cl,
+        "mse_cd": mse_cd,
+        "mae_cd": mae_cd,
+    }
 
 
 # Funzione per plottare i risultati
