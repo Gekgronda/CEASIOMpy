@@ -28,14 +28,14 @@ theta_values = [float(theta_input)]  # Estende theta al numero di dimensioni
 
 corr_value = (
     input(
-        "Insert correlation type (e.g., squar_exp, abs_exp, matern32, matern52) [default=matern32]: "
+        "Insert correlation type (e.g., squar_exp, abs_exp, matern32, matern52) [default=squar_exp]: "
     )
-    or "matern32"
+    or "squar_exp"
 )
 
 poly_value = (
-    input("Insert polynomial type (e.g., constant, linear, quadratic) [default=linear]: ")
-    or "linear"
+    input("Insert polynomial type (e.g., constant, linear, quadratic) [default=constant]: ")
+    or "constant"
 )
 
 # Nome del modello

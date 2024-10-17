@@ -30,7 +30,7 @@ model_filename = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/model.
 model = load_model(model_filename)
 
 # Dati di input per la previsione
-input_data = np.array([[10001, 0.5, 3, 3]])  # Cambia i valori in base alle tue necessità
+input_data = np.array([[9025, 0.4, 6, 3]])  # Cambia i valori in base alle tue necessità
 
 # Esegui la previsione
 cl_prediction, cd_prediction = make_predictions(model, input_data)

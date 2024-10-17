@@ -1,4 +1,4 @@
-Altitude,Mach number,Angle of attack (AoA),Angle of sideslip (AoS),Total CL,Total CD,Directory Name
+altitude,machNumber,angleOfAttack,angleOfSideslip,Total CL,Total CD,Directory Name
 1000.0,0.3,0.0,0.0,0.145757,-0.016172,Case00_alt1000.0_mach0.3_aoa0.0_aos0.0
 100.0,0.3,3.0,0.0,0.409871,0.003548,Case01_alt100.0_mach0.3_aoa3.0_aos0.0
 500.0,0.3,3.0,0.0,0.409871,0.003548,Case02_alt500.0_mach0.3_aoa3.0_aos0.0
