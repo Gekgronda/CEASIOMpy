@@ -1,6 +1,7 @@
 import pickle
 import numpy as np
 import os
+import csv
 
 
 # Funzione per caricare il modello salvato
@@ -25,6 +26,21 @@ def make_predictions(model, input_data):
     return cl_pred, cd_pred
 
 
+# Funzione per salvare i risultati in un file CSV
+def save_to_csv(cl_pred, cd_pred, filename):
+    """Salva le previsioni di CL e CD in un file CSV."""
+    # Creazione del dizionario per i dati predetti
+    predicted_data = [{"Cl predicted": cl, "Cd predicted": cd} for cl, cd in zip(cl_pred, cd_pred)]
+
+    # Scrittura dei dati nel file CSV
+    with open(filename, "w", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=["Cl predicted", "Cd predicted"])
+        writer.writeheader()  # Scrive l'intestazione
+        writer.writerows(predicted_data)  # Scrive le righe dei dati
+
+    print(f"Dati salvati in {filename}")
+
+
 # Carica il modello
 model_filename = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/surrogate_model.pkl"
 model = load_model(model_filename)
@@ -32,29 +48,39 @@ model = load_model(model_filename)
 # Dati di input per la previsione
 input_data = np.array(
     [
-        [1345, 0.3, 11, -8],
-        [12567, 0.3, 10, 5],
-        [2451, 0.4, 13, -11],
-        [9726, 0.4, -2, 12],
-        [14805, 0.4, 5, 12],
-        [11244, 0.1, 4, 11],
-        [1343, 0.3, 11, -7],
-        [9632, 0.4, 8, 2],
-        [11220, 0.5, 6, 10],
-        [12632, 0.4, 7, -13],
-        [4891, 0.4, 4, 13],
-        [4023, 0.3, 14, -3],
-        [12912, 0.3, 6, -1],
-        [6311, 0.5, 2, -11],
-        [9922, 0.4, -2, -2],
+        [12197, 0.5, -13, 9],
+        [11190, 0.1, 12, 11],
+        [11585, 0.6, -13, -2],
+        [3532, 0.4, 0, -1],
+        [8431, 0.4, -14, 13],
+        [6688, 0.5, 11, 1],
+        # [1345, 0.3, 11, -8],
+        # [12567, 0.3, 10, 5],
+        # [2451, 0.4, 13, -11],
+        # [9726, 0.4, -2, 12],
+        # [14805, 0.4, 5, 12],
+        # [11244, 0.1, 4, 11],
+        # [1343, 0.3, 11, -7],
+        # [9632, 0.4, 8, 2],
+        # [11220, 0.5, 6, 10],
+        # [12632, 0.4, 7, -13],
+        # [4891, 0.4, 4, 13],
+        # [4023, 0.3, 14, -3],
+        # [12912, 0.3, 6, -1],
+        # [6311, 0.5, 2, -11],
+        # [9922, 0.4, -2, -2],
     ]
 )
 
-print(input_data)
-# Cambia i valori in base alle tue necessità
-
 # Esegui la previsione
 cl_prediction, cd_prediction = make_predictions(model, input_data)
+
+# Definisci il percorso di output per il file CSV
+output_directory = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/"
+output_csv = "predicted_values.csv"
+
+# Salva i risultati nel file CSV
+save_to_csv(cl_prediction, cd_prediction, os.path.join(output_directory, output_csv))
 
 # Stampa i risultati
 print(f"Predizione di CL: {cl_prediction}")
