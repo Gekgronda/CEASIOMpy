@@ -6,10 +6,10 @@ import os
 # Funzione per generare i dati
 def data_gen(n):
     """Genera un DataFrame con n predizioni per altitudine, numero di Mach, AoA e AoS."""
-    altitude = np.random.randint(0, 15000, n)  # Altitudine random tra 0 e 15000 metri
-    mach = np.round(np.random.uniform(0.1, 0.6, n), 1)  # Mach number tra 0.1 e 0.6 con 1 decimale
-    aoa = np.random.randint(-4, 15, n)  # Angolo di attacco tra -4 e 15 gradi
-    aos = np.random.randint(-15, 15, n)  # Angolo di derapata tra -15 e 15 gradi
+    altitude = np.random.randint(0, 1000, n)  # Altitudine random tra 0 e 15000 metri
+    mach = np.round(np.random.uniform(0.1, 0.3, n), 1)  # Mach number tra 0.1 e 0.6 con 1 decimale
+    aoa = np.random.randint(0, 15, n)  # Angolo di attacco tra -4 e 15 gradi
+    aos = np.random.randint(-2, 2, n)  # Angolo di derapata tra -15 e 15 gradi
 
     df = pd.DataFrame(
         {"altitude": altitude, "machNumber": mach, "angleOfAttack": aoa, "angleOfSideslip": aos}
@@ -24,8 +24,8 @@ def save_to_csv(df, filename):
     print(f"File saved to {filename}")
 
 
-# Chiedi all'utente il numero di predizioni da generare
-n = int(input("Insert the number of predictions: "))
+# Chiedi all'utente il numero di punti da generare
+n = int(input("Insert the number of points: "))
 
 # Genera i dati
 df = data_gen(n)
@@ -34,7 +34,7 @@ df = data_gen(n)
 output_filename = input("Enter the name of the CSV file (without .csv extension): ") + ".csv"
 
 # Percorso della cartella in cui salvare il file
-output_directory = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/"
+output_directory = "/home/cfse/Stage_Gronda/datasets"
 
 # Crea il percorso completo del file
 full_path = os.path.join(output_directory, output_filename)

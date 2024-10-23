@@ -1,11 +1,11 @@
 import os
 import shutil
 
-# Percorso del file originale da copiare
+# Percorso del file ConfigCFD base
 original_config_path = "/home/cfse/Stage_Gronda/CEASIOMpy/WKDIR/Workflow_067/Results/SU2/Case01_alt1000.0_mach0.4_aoa5.0_aos3.0/ConfigCFD.cfg"
 
-# Ciclo che varia il numero del workflow da 068 a 070
-for i in range(72, 77):
+# Ciclo che varia il numero del workflow
+for i in range(89, 90):
     # Percorso esistente
     base_destination_path = f"/home/cfse/Stage_Gronda/CEASIOMpy/WKDIR/Workflow_{i:03d}/Results/"
 
