@@ -17,9 +17,7 @@ def coefficent_extraction_from_directories(base_path):
 
     # Scorri attraverso le cartelle nel percorso base
     for directory in os.listdir(base_path):
-        if re.match(
-            r"Case\d+_alt[\d\.]+_mach[\d\.]+_aoa[-]?[\d\.]+_aos[-]?[\d\.]+", directory
-        ):
+        if re.match(r"Case\d+_alt[\d\.]+_mach[\d\.]+_aoa[-]?[\d\.]+_aos[-]?[\d\.]+", directory):
             directory_path = os.path.join(base_path, directory)
             file_path = os.path.join(directory_path, "forces_breakdown.dat")
 
@@ -28,7 +26,7 @@ def coefficent_extraction_from_directories(base_path):
                 # Estrai i coefficienti dal file
                 coefficents = data_extraction(file_path)
                 # Aggiungi il nome della cartella come un nuovo campo
-                coefficents["Directory Name"] = directory
+                # coefficents["Directory Name"] = directory
                 res.append(coefficents)
             else:
                 print(f"File not found: {file_path}")  # Debug message
@@ -62,9 +60,16 @@ def data_extraction(file_path):
         content = file.read()
 
     cl = re.search(r"Total CL:\s+([-+]?\d*\.\d+|\d+)", content).group(1)
-    cd = re.search(r"Total CD:\s+([-+]?\d*\.\d+|\d+)").group(1)
+    cd = re.search(r"Total CD:\s+([-+]?\d*\.\d+|\d+)", content).group(1)
 
-    return {"Altitude": altitude, "Mach": mach, "AoA": aoa, "AoS": aos, "Total CL": cl, "Total CD": cd}
+    return {
+        "Altitude": altitude,
+        "Mach": mach,
+        "AoA": aoa,
+        "AoS": aos,
+        "Total CL": cl,
+        "Total CD": cd,
+    }
 
 
 def save_to_csv(data, filename):
@@ -88,8 +93,8 @@ def save_to_csv(data, filename):
 
 
 # Ask path
-base_path = input("Insert directory path: ")
-# base_path = "/home/cfse/Stage_Gronda/CEASIOMpy/WKDIR/Workflow_027/Results/SU2"
+# base_path = input("Insert directory path: ")
+base_path = "/home/cfse/Stage_Gronda/CEASIOMpy/WKDIR/Workflow_029/Results/SU2"
 extract_values = coefficent_extraction_from_directories(base_path)
 
 # Salva i valori estratti in un file CSV
