@@ -13,7 +13,7 @@ from ceasiompy.SMTrain_new.gg_sm2 import (
 
 # Carica il database
 name = input("Insert database name (with .csv extention): ") or "dataset_500_points.csv"
-file_path = f"/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/{name}"
+file_path = f"/home/cfse/Stage_Gronda/datasets/{name}"
 df = pd.read_csv(file_path)
 # Definisci gli input e output
 X = df[["altitude", "machNumber", "angleOfAttack", "angleOfSideslip"]].values
@@ -22,25 +22,25 @@ y_cd = df["Total CD"].values
 
 # Chiedi all'utente di inserire i valori di theta, corr e poly, con valori di default
 theta_input = (
-    input("Insert theta value (single value, e.g., 0.1, 0.01, 0.001, 0.0001) [default=0.1]: ")
-    or "0.1"
+    input("Insert theta value (single value, e.g., 0.1, 0.01, 0.001, 0.0001) [default=0.01]: ")
+    or "0.01"
 )
 theta_values = [float(theta_input)]  # Estende theta al numero di dimensioni
 
 corr_value = (
     input(
-        "Insert correlation type (e.g., squar_exp, abs_exp, matern32, matern52) [default=squar_exp]: "
+        "Insert correlation type (e.g., squar_exp, abs_exp, matern32, matern52) [default=matern32]: "
     )
-    or "squar_exp"
+    or "matern32"
 )
 
 poly_value = (
-    input("Insert polynomial type (e.g., constant, linear, quadratic) [default=constant]: ")
-    or "constant"
+    input("Insert polynomial type (e.g., constant, linear, quadratic) [default=quadratic]: ")
+    or "quadratic"
 )
 
 use_sampling = (
-    input("Do you want to apply Latin Hypercube Sampling (yes/no)? [default=yes]: ") or "yes"
+    input("Do you want to apply Latin Hypercube Sampling (yes/no)? [default=no]: ") or "no"
 )
 
 if use_sampling.lower() == "yes":

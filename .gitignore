@@ -182,3 +182,4 @@ aircraft_loads.csv
 !/ceasiompy/utils/tests/tests_workflowfunctions/ToolInput/ToolInput.xml
 !/test_files/AeroMaps/*.csv
 ceasiompy/SMTrain_new/dataset_prova_libro.csv
+ceasiompy/tree.png
