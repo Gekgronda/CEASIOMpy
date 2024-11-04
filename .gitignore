@@ -183,3 +183,5 @@ aircraft_loads.csv
 !/test_files/AeroMaps/*.csv
 ceasiompy/SMTrain_new/dataset_prova_libro.csv
 ceasiompy/tree.png
+ceasiompy/SMTrain_new/predicted_values.csv
+ceasiompy/SMTrain_new/surrogate_model.pkl

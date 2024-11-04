@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
 import os
-from smt.surrogate_models import KRG
+from smt.surrogate_models import KRG, LS, QP
+from smt.applications import MOE
 from smt.utils.misc import compute_rms_error
 from smt.sampling_methods import LHS
 from sklearn.model_selection import train_test_split
@@ -41,9 +42,8 @@ def match_outputs(X_lhs, X, y_cl, y_cd):
     return np.array(y_cl_lhs), np.array(y_cd_lhs)
 
 
-# Funzione per addestrare i modelli per CL e CD
-def fit_model(X, y_cl, y_cd, theta, corr, poly, test_size=0.3, random_state=42):
-    """Train models for CL and CD."""
+def split_data(X, y_cl, y_cd, test_size=0.3, random_state=42):
+    """Divide the data into training and testing sets."""
     X_train, X_temp, y_cl_train, y_cl_temp = train_test_split(
         X, y_cl, test_size=test_size, random_state=random_state
     )
@@ -58,8 +58,25 @@ def fit_model(X, y_cl, y_cd, theta, corr, poly, test_size=0.3, random_state=42):
         X_temp, y_cd_temp, test_size=0.9, random_state=random_state
     )
 
-    ndim = X_train.shape[1]
+    return (
+        X_train,
+        y_cl_train,
+        X_val,
+        y_cl_val,
+        X_test,
+        y_cl_test,
+        X_temp,
+        y_cd_train,
+        X_val,
+        y_cd_val,
+        X_test,
+        y_cd_test,
+    )
 
+
+# Funzione per addestrare i modelli per CL e CD
+def fit_model(X_train, y_cl_train, y_cd_train, theta, corr, poly):
+    """Train models for CL and CD."""
     # Inizializzazione dei modelli per CL e CD
     model_cl = KRG(theta0=theta, corr=corr, poly=poly, print_global=False)
     model_cd = KRG(theta0=theta, corr=corr, poly=poly, print_global=False)
@@ -72,7 +89,7 @@ def fit_model(X, y_cl, y_cd, theta, corr, poly, test_size=0.3, random_state=42):
     model_cl.train()
     model_cd.train()
 
-    return model_cl, model_cd, X_test, y_cl_test, y_cd_test
+    return model_cl, model_cd
 
 
 # Funzione per fare previsioni sui dati di test
@@ -84,17 +101,17 @@ def predict_model(model_cl, model_cd, X_test):
 
 
 # Funzione per valutare i modelli
-def evaluate_model(model_cl, model_cd, X_test, y_test_cl, y_test_cd, cl_pred, cd_pred):
+def evaluate_model(model_cl, model_cd, X_test, y_cl_test, y_cd_test, cl_pred, cd_pred):
     """Evaluate the model and compare predictions with test data."""
     # Calcolo MSE e MAE per CL
-    rms_cl = compute_rms_error(model_cl, X_test, y_test_cl)
-    mse_cl = mean_squared_error(y_test_cl, cl_pred)
-    mae_cl = mean_absolute_error(y_test_cl, cl_pred)
+    rms_cl = compute_rms_error(model_cl, X_test, y_cl_test)
+    mse_cl = mean_squared_error(y_cl_test, cl_pred)
+    mae_cl = mean_absolute_error(y_cl_test, cl_pred)
 
     # Calcolo MSE e MAE per CD
-    rms_cd = compute_rms_error(model_cd, X_test, y_test_cd)
-    mse_cd = mean_squared_error(y_test_cd, cd_pred)
-    mae_cd = mean_absolute_error(y_test_cd, cd_pred)
+    rms_cd = compute_rms_error(model_cd, X_test, y_cd_test)
+    mse_cd = mean_squared_error(y_cd_test, cd_pred)
+    mae_cd = mean_absolute_error(y_cd_test, cd_pred)
 
     # Print results
     print("Errors for CL:")
@@ -117,17 +134,17 @@ def evaluate_model(model_cl, model_cd, X_test, y_test_cl, y_test_cd, cl_pred, cd
 
 
 # Funzione per plottare i risultati
-def plot_predictions(y_test_cl, y_test_cd, cl_pred, cd_pred):
+def plot_predictions(y_cl_test, y_cd_test, cl_pred, cd_pred):
     """Plot the predicted vs actual values for CL and CD."""
 
     # Creazione dei grafici
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
     # Grafico per CL
-    axs[0].scatter(y_test_cl, cl_pred, color="blue", alpha=0.5)
+    axs[0].scatter(y_cl_test, cl_pred, color="blue", alpha=0.5)
     axs[0].plot(
-        [y_test_cl.min(), y_test_cl.max()],
-        [y_test_cl.min(), y_test_cl.max()],
+        [y_cl_test.min(), y_cl_test.max()],
+        [y_cl_test.min(), y_cl_test.max()],
         "r--",
         lw=2,
     )
@@ -137,10 +154,10 @@ def plot_predictions(y_test_cl, y_test_cd, cl_pred, cd_pred):
     axs[0].grid()
 
     # Grafico per CD
-    axs[1].scatter(y_test_cd, cd_pred, color="green", alpha=0.5)
+    axs[1].scatter(y_cd_test, cd_pred, color="green", alpha=0.5)
     axs[1].plot(
-        [y_test_cd.min(), y_test_cd.max()],
-        [y_test_cd.min(), y_test_cd.max()],
+        [y_cd_test.min(), y_cd_test.max()],
+        [y_cd_test.min(), y_cd_test.max()],
         "r--",
         lw=2,
     )
@@ -167,6 +184,31 @@ def save_model(model, filename):
     with open(filename, "wb") as f:
         pickle.dump(model, f)
     print(f"Model saved succesfully into {filename}")
+
+
+# MoE
+def compare_models(X_test, y_cl_test, X_train, y_cl_train):
+    moe = MOE(n_clusters=1)
+    moe = MOE(n_clusters=1, xtest=X_test, ytest=y_cl_test)
+    # moe = MOE(n_clusters=1, allow=["KRG", "LS", "QP"])
+
+    print("MOE enabled experts: ", moe.enabled_experts)
+
+    moe.set_training_values(X_train, y_cl_train)
+    moe.train()
+
+    print("Best model found with MOE", moe._experts[0].name)
+    if (
+        (moe._experts[0].name == "Kriging")
+        or (moe._experts[0].name == "KPLS")
+        or (moe._experts[0].name == "KPLSK")
+    ):
+        print("Correlation parameter of this model:", moe._experts[0].options["corr"])
+        print("Regression parameter of this model:", moe._experts[0].options["poly"])
+
+    # Prediction of the validation points
+    y = moe.predict_values(X_test)
+    print("MOE + 1 cluster,  err: " + str(compute_rms_error(moe, X_test, y_cl_test)))
 
 
 # # Specifica il percorso del file CSV
