@@ -2,6 +2,7 @@ import pickle
 import numpy as np
 import os
 import csv
+import pandas as pd
 
 
 # Funzione per caricare il modello salvato
@@ -45,37 +46,42 @@ def save_to_csv(cl_pred, cd_pred, filename):
 model_filename = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/surrogate_model.pkl"
 model = load_model(model_filename)
 
+# Load new data for prediction
+new_data_file = "/home/cfse/Stage_Gronda/datasets/prediction_takeoff.csv"  # Update with the path to your CSV file
+new_data = pd.read_csv(new_data_file, header=0)
+X_new = new_data.values
+
 # Dati di input per la previsione
-input_data = np.array(
-    [
-        [5.86e02, 2.00e-01, 1.40e01, -2.00e00],
-        [6.87e02, 2.00e-01, 1.00e00, 1.00e00],
-        [2.20e02, 2.00e-01, 1.30e01, -2.00e00],
-        [7.51e02, 3.00e-01, 1.00e00, 1.00e00],
-        # [1345, 0.3, 11, -8],
-        # [12567, 0.3, 10, 5],
-        # [2451, 0.4, 13, -11],
-        # [9726, 0.4, -2, 12],
-        # [14805, 0.4, 5, 12],
-        # [11244, 0.1, 4, 11],
-        # [1343, 0.3, 11, -7],
-        # [9632, 0.4, 8, 2],
-        # [11220, 0.5, 6, 10],
-        # [12632, 0.4, 7, -13],
-        # [4891, 0.4, 4, 13],
-        # [4023, 0.3, 14, -3],
-        # [12912, 0.3, 6, -1],
-        # [6311, 0.5, 2, -11],
-        # [9922, 0.4, -2, -2],
-    ]
-)
+# input_data = np.array(
+#     [
+#         [5.86e02, 2.00e-01, 1.40e01, -2.00e00],
+#         [6.87e02, 2.00e-01, 1.00e00, 1.00e00],
+#         [2.20e02, 2.00e-01, 1.30e01, -2.00e00],
+#         [7.51e02, 3.00e-01, 1.00e00, 1.00e00],
+#         # [1345, 0.3, 11, -8],
+#         # [12567, 0.3, 10, 5],
+#         # [2451, 0.4, 13, -11],
+#         # [9726, 0.4, -2, 12],
+#         # [14805, 0.4, 5, 12],
+#         # [11244, 0.1, 4, 11],
+#         # [1343, 0.3, 11, -7],
+#         # [9632, 0.4, 8, 2],
+#         # [11220, 0.5, 6, 10],
+#         # [12632, 0.4, 7, -13],
+#         # [4891, 0.4, 4, 13],
+#         # [4023, 0.3, 14, -3],
+#         # [12912, 0.3, 6, -1],
+#         # [6311, 0.5, 2, -11],
+#         # [9922, 0.4, -2, -2],
+#     ]
+# )
 
 # Esegui la previsione
-cl_prediction, cd_prediction = make_predictions(model, input_data)
+cl_prediction, cd_prediction = make_predictions(model, X_new)
 
 # Definisci il percorso di output per il file CSV
 output_directory = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/"
-output_csv = "predicted_values.csv"
+output_csv = "predicted_values_sm.csv"
 
 # Salva i risultati nel file CSV
 save_to_csv(cl_prediction, cd_prediction, os.path.join(output_directory, output_csv))

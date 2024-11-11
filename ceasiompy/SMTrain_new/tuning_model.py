@@ -1,28 +1,38 @@
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 from bayes_opt import BayesianOptimization
 from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import mean_squared_error, make_scorer
+from ceasiompy.SMTrain_new.gg_sm2 import split_data
 
 
-# Carica i dati
-data = "/home/cfse/Stage_Gronda/sonar.csv"
-dataframe = pd.read_csv(data, header=0)
-data = dataframe.values
-X, y = data[:, :-1], data[:, -1]
-y = y.astype(int)
+# Carica il database
+name = input("Insert database name (with .csv extention): ") or "takeoff_totale.csv"
+file_path = f"/home/cfse/Stage_Gronda/datasets/{name}"
+df = pd.read_csv(file_path)
 
-# GRID SEARCH NON FUNZIONA
-# # Converte la variabile target (y) in valori numerici
-# label_encoder = LabelEncoder()
-# y = label_encoder.fit_transform(y)
-
-
-# Suddividi i dati in training e test set
-print(X.shape, y.shape)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+# Definisci gli input e output
+X = df[["altitude", "machNumber", "angleOfAttack", "angleOfSideslip"]].values
+y_cl = df["Total CL"].values
+y_cd = df["Total CD"].values
+(
+    X_train,
+    y_cl_train,
+    X_val,
+    y_cl_val,
+    X_test,
+    y_cl_test,
+    X_temp,
+    y_cd_train,
+    X_val,
+    y_cd_val,
+    X_test,
+    y_cd_test,
+) = split_data(X, y_cl, y_cd)
+print(X.shape, y_cd.shape)
 
 # # Definisci i parametri per la grid search
 # param_grid = {
@@ -40,14 +50,20 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random
 
 # BAYESIAN OPTIMIZATION
 def rf_cv(n_estimators, max_depth, max_features):
-    estimator = RandomForestClassifier(
+    estimator = RandomForestRegressor(
         n_estimators=int(n_estimators),
         max_depth=int(max_depth),
         max_features=min(max_features, 0.999),
         random_state=42,
         n_jobs=-1,
     )
-    cval = cross_val_score(estimator, X_train, y_train, scoring="accuracy", cv=5)
+    cval = cross_val_score(
+        estimator,
+        X_train,
+        y_cd_train,
+        scoring=make_scorer(mean_squared_error, greater_is_better=False),
+        cv=5,
+    )
     return cval.mean()
 
 
@@ -57,13 +73,39 @@ optimizer = BayesianOptimization(f=rf_cv, pbounds=params, random_state=42)
 optimizer.maximize(init_points=20, n_iter=50)
 
 best_params = optimizer.max["params"]
-best_rf = RandomForestClassifier(
+best_rf = RandomForestRegressor(
     n_estimators=int(best_params["n_estimators"]),
     max_depth=int(best_params["max_depth"]),
     max_features=min(best_params["max_features"], 0.999),
     n_jobs=-1,
 )
 
-best_rf.fit(X_train, y_train)
-best_accuracy = cross_val_score(best_rf , X_train, y_train, scoring="accuracy", cv=5).mean()
-print(f"Best Acc after BayOpt: {best_accuracy:.4f}")
+# Fit the model with the best parameters
+best_rf.fit(X_train, y_cd_train)
+
+# Evaluate the model on the test set
+predictions = best_rf.predict(X_test)
+mse = mean_squared_error(y_cd_test, predictions)
+print(f"Best MSE after Bayesian Optimization: {mse:.4f}")
+
+# ---- Prediction on New CSV Data ----
+
+# Load new data for prediction
+new_data_file = (
+    "/home/cfse/Stage_Gronda/datasets/takeoff4_calc.csv"  # Update with the path to your CSV file
+)
+new_data = pd.read_csv(new_data_file, header=0)
+X_new = new_data.values  # Assuming the new CSV has only features without target values
+
+# Make predictions on the new data
+new_predictions = best_rf.predict(X_new)
+
+# Save predictions to a new CSV file
+output_df = pd.DataFrame(new_predictions, columns=["Predicted Values"])
+output_df.to_csv(
+    "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/predicted_values_randomfor.csv",
+    index=False,
+)
+print(
+    "Predictions saved to /home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/predicted_values_randomfor.csv"
+)

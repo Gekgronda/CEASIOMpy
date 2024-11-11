@@ -67,6 +67,6 @@ def append_to_csv(data, filename):
 # qui devi dargli il path della cartella su2 dove sono contenuti i Workflow
 base_path = input("Insert directory path: ")
 # modifica il path del workflow
-csv_filename = "/home/cfse/Stage_Gronda/datasets/takeoff4.csv"
+csv_filename = "/home/cfse/Stage_Gronda/datasets/prediction_takeoff_with_results.csv"
 data = extract_coefficients(base_path)
 append_to_csv(data, csv_filename)

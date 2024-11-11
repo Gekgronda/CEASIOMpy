@@ -25,4 +25,4 @@ y_cd = df["Total CD"].values
     X_test,
     y_cd_test,
 ) = split_data(X, y_cl, y_cd)
-compare_models(X_test, y_cd_test, X_train, y_cd_train)
+compare_models(X_test, y_cl_test, X_train, y_cl_train)
