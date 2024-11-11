@@ -185,3 +185,15 @@ ceasiompy/SMTrain_new/dataset_prova_libro.csv
 ceasiompy/tree.png
 ceasiompy/SMTrain_new/predicted_values.csv
 ceasiompy/SMTrain_new/surrogate_model.pkl
+ceasiompy/SMTrain_new/bayesian_prova.py
+ceasiompy/SMTrain_new/decision_tree.py
+ceasiompy/SMTrain_new/ego_prova.py
+ceasiompy/SMTrain_new/tuning_model.py
+
+ceasiompy/SMTrain_new/hyperopt_prova.py
+ceasiompy/SMTrain_new/moe.py
+ceasiompy/SMTrain_new/multi_fidelity.py
+ceasiompy/SMTrain_new/predicted_values_sm.csv
+ceasiompy/SMTrain_new/random_forest.py
+ceasiompy/SMTrain_new/risoluzione_rmtb.py
+
