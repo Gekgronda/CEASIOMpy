@@ -5,6 +5,7 @@ import ast
 from smt.surrogate_models import KRG, LS, QP, KPLSK, KPLS, IDW, RBF, RMTB, RMTC
 from smt.applications import MOE, EGO
 from smt.applications.mixed_integer import MixedIntegerContext
+from smt.applications.mfk import MFK, NestedLHS
 from smt.utils.design_space import (
     CategoricalVariable,
     DesignSpace,
@@ -35,6 +36,7 @@ def latin_hypercube_sampling(X, num_samples):
 
 
 # Funzione per abbinare gli output con i campioni LHS
+# DA AGGIUNGERE ALTRI COEFFICENTI
 def match_outputs(X_lhs, X, y_cl, y_cd):
     """Match the outputs for the sampled inputs."""
     y_cl_lhs = []
@@ -53,6 +55,7 @@ import numpy as np
 
 
 # Funzione per aggiungere rumore ai dati di input
+# DA AGGIUNGERE ALTRI COEFFICENTI
 def add_noise(X, y_cl, y_cd, noise_level=0.05, num_samples=None):
     """
     Add noise to the input data to create new samples.
@@ -86,6 +89,7 @@ def add_noise(X, y_cl, y_cd, noise_level=0.05, num_samples=None):
     return X_noisy, y_cl_noisy, y_cd_noisy
 
 
+# DA AGGIUNGERE ALTRI COEFFICENTI
 def match_noisy_outputs(X_noisy, X, y_cl, y_cd):
     """Match the outputs for noisy inputs."""
     y_cl_noisy = []
@@ -118,25 +122,67 @@ def validate_inputs(data):
     return True
 
 
-def split_data(X, y_cl, y_cd, test_size=0.3, random_state=42):
-    """Divide the data into training and testing sets."""
+def split_data(X, y_cl, y_cd, y_cs, y_cmx, y_cmy, y_cmz, test_size=0.3, random_state=42):
+    """Divide the data into training, validation, and testing sets for all parameters."""
 
+    # Validazione degli input
     validate_inputs(X)
-    validate_inputs(y_cl)
-    validate_inputs(y_cd)
+    for y in [y_cl, y_cd, y_cs, y_cmx, y_cmy, y_cmz]:
+        validate_inputs(y)
 
-    X_train, X_temp, y_cl_train, y_cl_temp = train_test_split(
-        X, y_cl, test_size=test_size, random_state=random_state
-    )
-    X_val, X_test, y_cl_val, y_cl_test = train_test_split(
-        X_temp, y_cl_temp, test_size=0.9, random_state=random_state
+    # Suddivisione dei dati
+    (
+        X_train,
+        X_temp,
+        y_cl_train,
+        y_cl_temp,
+        y_cd_train,
+        y_cd_temp,
+        y_cs_train,
+        y_cs_temp,
+        y_cmx_train,
+        y_cmx_temp,
+        y_cmy_train,
+        y_cmy_temp,
+        y_cmz_train,
+        y_cmz_temp,
+    ) = train_test_split(
+        X,
+        y_cl,
+        y_cd,
+        y_cs,
+        y_cmx,
+        y_cmy,
+        y_cmz,
+        test_size=test_size,
+        random_state=random_state,
     )
 
-    _, X_temp, y_cd_train, y_cd_temp = train_test_split(
-        X, y_cd, test_size=test_size, random_state=random_state
-    )
-    X_val, X_test, y_cd_val, y_cd_test = train_test_split(
-        X_temp, y_cd_temp, test_size=0.9, random_state=random_state
+    (
+        X_val,
+        X_test,
+        y_cl_val,
+        y_cl_test,
+        y_cd_val,
+        y_cd_test,
+        y_cs_val,
+        y_cs_test,
+        y_cmx_val,
+        y_cmx_test,
+        y_cmy_val,
+        y_cmy_test,
+        y_cmz_val,
+        y_cmz_test,
+    ) = train_test_split(
+        X_temp,
+        y_cl_temp,
+        y_cd_temp,
+        y_cs_temp,
+        y_cmx_temp,
+        y_cmy_temp,
+        y_cmz_temp,
+        test_size=0.9,
+        random_state=random_state,
     )
 
     return (
@@ -149,6 +195,18 @@ def split_data(X, y_cl, y_cd, test_size=0.3, random_state=42):
         y_cd_train,
         y_cd_val,
         y_cd_test,
+        y_cs_train,
+        y_cs_val,
+        y_cs_test,
+        y_cmx_train,
+        y_cmx_val,
+        y_cmx_test,
+        y_cmy_train,
+        y_cmy_val,
+        y_cmy_test,
+        y_cmz_train,
+        y_cmz_val,
+        y_cmz_test,
     )
 
 
@@ -270,6 +328,11 @@ def Regularized_MTC(
     model.set_training_values(X_train, y_train)
     model.train()
     return model
+
+
+def mf_kriging(x_lf, y_lf, x_hf, y_hf):
+
+    return
 
 
 def get_model_params(model_type):
@@ -529,79 +592,51 @@ def predict_model(model, X_test):
     return y_pred
 
 
-# Funzione per valutare i modelli
-def evaluate_model(model_cl, model_cd, X_test, y_cl_test, y_cd_test, cl_pred, cd_pred):
-    """Evaluate the model and compare predictions with test data."""
-    # Calcolo MSE e MAE per CL
-    rms_cl = compute_rms_error(model_cl, X_test, y_cl_test)
-    mse_cl = mean_squared_error(y_cl_test, cl_pred)
-    mae_cl = mean_absolute_error(y_cl_test, cl_pred)
+# Funzione per valutare un modello
+def evaluate_model(model, X_test, y_test, predictions, label):
+    """Valuta il modello e calcola gli errori"""
+    rms = compute_rms_error(model, X_test, y_test)
+    mse = mean_squared_error(y_test, predictions)
+    mae = mean_absolute_error(y_test, predictions)
 
-    # Calcolo MSE e MAE per CD
-    rms_cd = compute_rms_error(model_cd, X_test, y_cd_test)
-    mse_cd = mean_squared_error(y_cd_test, cd_pred)
-    mae_cd = mean_absolute_error(y_cd_test, cd_pred)
+    # Stampa i risultati
+    print(f"Errors for {label}:")
+    print(f"Root Mean Squared Error ({label}): {rms}")
+    print(f"Mean Squared Error ({label}): {mse}")
+    print(f"Mean Absolute Error ({label}): {mae}")
+    print()
 
-    # Print results
-    print("Errors for CL:")
-    print(f"Root Mean Squared Error (CL): {rms_cl}")
-    print(f"Mean Squared Error (CL): {mse_cl}")
-    print(f"Mean Absolute Error (CL): {mae_cl}")
-
-    print("\nErrors for CD:")
-    print(f"Root Mean Squared Error (CD): {rms_cd}")
-    print(f"Mean Squared Error (CD): {mse_cd}")
-    print(f"Mean Absolute Error (CD): {mae_cd}")
-
-    return {
-        "rms_cl": rms_cl,
-        "mse_cl": mse_cl,
-        "mae_cl": mae_cl,
-        "mse_cd": mse_cd,
-        "mae_cd": mae_cd,
-    }
+    return {"rms": rms, "mse": mse, "mae": mae}
 
 
 # Funzione per plottare i risultati
-def plot_predictions(y_cl_test, y_cd_test, cl_pred, cd_pred):
-    """Plot the predicted vs actual values for CL and CD."""
-
-    # Creazione dei grafici
-    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
-
-    # Grafico per CL
-    axs[0].scatter(y_cl_test, cl_pred, color="blue", alpha=0.5)
-    axs[0].plot(
-        [y_cl_test.min(), y_cl_test.max()],
-        [y_cl_test.min(), y_cl_test.max()],
+def plot_predictions(y_test, predictions, label):
+    """Crea un grafico Predicted vs Actual"""
+    plt.figure(figsize=(6, 6))
+    plt.scatter(y_test, predictions, color="blue", alpha=0.5)
+    plt.plot(
+        [y_test.min(), y_test.max()],
+        [y_test.min(), y_test.max()],
         "r--",
         lw=2,
     )
-    axs[0].set_title("Predicted vs Actual CL")
-    axs[0].set_xlabel("Actual CL")
-    axs[0].set_ylabel("Predicted CL")
-    axs[0].grid()
-
-    # Grafico per CD
-    axs[1].scatter(y_cd_test, cd_pred, color="green", alpha=0.5)
-    axs[1].plot(
-        [y_cd_test.min(), y_cd_test.max()],
-        [y_cd_test.min(), y_cd_test.max()],
-        "r--",
-        lw=2,
-    )
-    axs[1].set_title("Predicted vs Actual CD")
-    axs[1].set_xlabel("Actual CD")
-    axs[1].set_ylabel("Predicted CD")
-    axs[1].grid()
-
-    plt.tight_layout()
+    plt.title(f"Predicted vs Actual {label}")
+    plt.xlabel(f"Actual {label}")
+    plt.ylabel(f"Predicted {label}")
+    plt.grid()
     plt.show()
 
 
-def combine_models(model_cl, model_cd):
-    """Combine CL and CD models into a single dictionary."""
-    return {"model_cl": model_cl, "model_cd": model_cd}
+def combine_models(model_cl, model_cd, model_cs, model_cmx, model_cmy, model_cmz):
+    """Combine CL, CD, CS, CMx, CMy, and CMz models into a single dictionary."""
+    return {
+        "model_cl": model_cl,
+        "model_cd": model_cd,
+        "model_cs": model_cs,
+        "model_cmx": model_cmx,
+        "model_cmy": model_cmy,
+        "model_cmz": model_cmz,
+    }
 
 
 # Funzione per salvare il modello, con pickle (+ gestione errori)

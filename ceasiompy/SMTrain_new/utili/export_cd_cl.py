@@ -32,9 +32,9 @@ def save_to_csv(data, filename):
 
 
 # Esecuzione
-base_path = input("Insert directory path: ")
-output_directory = "/home/cfse/Stage_Gronda/CEASIOMpy/ceasiompy/SMTrain_new/"
-output_csv = input("Insert the output .csv file name (with .csv extention): ")
+base_path = "/wrk/Gronda/labAR/EULER/takeoff0/"
+output_directory = "/wrk/Gronda/labAR/EULER/takeoff0/"
+output_csv = "cc.csv"
 
 # Estrai i coefficienti
 data = extract_coefficients(base_path)
