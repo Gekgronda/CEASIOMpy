@@ -330,9 +330,7 @@ def Regularized_MTC(
     return model
 
 
-def mf_kriging(x_lf, y_lf, x_hf, y_hf):
 
-    return
 
 
 def get_model_params(model_type):
