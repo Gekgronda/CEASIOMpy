@@ -197,3 +197,11 @@ ceasiompy/SMTrain_new/predicted_values_sm.csv
 ceasiompy/SMTrain_new/random_forest.py
 ceasiompy/SMTrain_new/risoluzione_rmtb.py
 
+ceasiompy/results.csv
+ceasiompy/SMTrain_new/text.txt
+ceasiompy/SMTrain_new/z_surrogate_models/surrogate_model_6coeff.pkl
+ceasiompy/SMTrain_new/mf_codes/prove.py
+ceasiompy/SMTrain_new/utili/create_dataset.py
+ceasiompy/SMTrain_new/utili/create_dataset.py
+ceasiompy/SMTrain_new/utili/create_dataset.py
+ceasiompy/SMTrain_new/utili/find_datas_in_workflows.py
