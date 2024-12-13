@@ -64,8 +64,8 @@ def save_to_csv(data, filename):
 
 
 # Esecuzione
-base_path = "/wrk/Gronda/labAR/EULER/mesh_dependency/prova_cpacs_handling/"
-output_csv = "/wrk/Gronda/labAR/EULER/mesh_dependency/results.csv"
+base_path = "/wrk/Gronda/labAR/EULER/mesh_dependency/nuovo_cpacs_handling/"
+output_csv = "/wrk/Gronda/labAR/EULER/mesh_dependency/nuovo_cpacs_handling/results3.csv"
 
 # Estrai i coefficienti
 data = extract_coefficients(base_path)

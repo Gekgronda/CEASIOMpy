@@ -2,7 +2,20 @@ import os
 import numpy as np
 import pandas as pd
 from tixi3.tixi3wrapper import Tixi3
-from ceasiompy.utils.commonxpath import AVL_XPATH, AVL_AEROMAP_UID_XPATH, REF_XPATH
+from ceasiompy.utils.commonxpath import (
+    AVL_XPATH,
+    AVL_AEROMAP_UID_XPATH,
+    REF_XPATH,
+    GMSH_XPATH,
+    GMSH_SYMMETRY_XPATH,
+    GMSH_FARFIELD_FACTOR_XPATH,
+    GMSH_MESH_SIZE_ENGINES_XPATH,
+    GMSH_MESH_SIZE_FACTOR_FUSELAGE_XPATH,
+    GMSH_MESH_SIZE_FACTOR_WINGS_XPATH,
+    GMSH_MESH_SIZE_FARFIELD_XPATH,
+    SU2_XPATH,
+    SU2_AEROMAP_UID_XPATH,
+)
 
 
 def create_or_update_element(tixi, xpath, value):
@@ -37,6 +50,12 @@ def create_or_update_element(tixi, xpath, value):
     tixi.updateTextElement(xpath, value)
 
 
+def change_reference_value(tixi, ref_val):
+    for key, values in ref_val.items():
+        ref_path = f"{REF_XPATH}/{key}"
+        create_or_update_element(tixi, f"{ref_path}", values)
+
+
 def add_new_aeromap(tixi, aeromap, aeromap_uid, aeromap_name):
     """
     Create a new aeromap in the CPACS file under aeroPerformance.
@@ -52,6 +71,9 @@ def add_new_aeromap(tixi, aeromap, aeromap_uid, aeromap_name):
     """
     AEROPERFORMANCE_PATH = "/cpacs/vehicles/aircraft/model/analyses/aeroPerformance"
     NEW_AEROMAP_PATH = f"{AEROPERFORMANCE_PATH}/aeroMap[@uID='{aeromap_uid}']"
+
+    if not isinstance(aeromap, dict):
+        raise TypeError(f"'aeromap' must be a dictionary, got {type(aeromap)} instead.")
 
     # Ensure aeroPerformance exists
     if not tixi.checkElement(AEROPERFORMANCE_PATH):
@@ -77,6 +99,8 @@ def add_new_aeromap(tixi, aeromap, aeromap_uid, aeromap_name):
     performance_map_path = f"{NEW_AEROMAP_PATH}/aeroPerformanceMap"
     for key, values in aeromap.items():
         element_path = f"{performance_map_path}/{key}"
+        if not tixi.checkElement(element_path):
+            tixi.createElement(performance_map_path, key)
         # Add the mapType attribute
         tixi.addTextAttribute(element_path, "mapType", "vector")
         create_or_update_element(tixi, f"{element_path}", values)
@@ -100,7 +124,35 @@ def avl_update(tixi, aeromap_name, avl_params):
         create_or_update_element(tixi, f"{params_path}", values)
 
 
-def change_reference_value(tixi, ref_val):
-    for key, values in ref_val.items():
-        ref_path = f"{REF_XPATH}/{key}"
-        create_or_update_element(tixi, f"{ref_path}", values)
+def euler_update(tixi, aeromap_name, common_params, mesh_params, su2_params):
+    """
+    Aggiorna o crea i valori nel file CPACS per parametri aerodinamici, della mesh e SU2.
+
+    Parameters:
+        tixi (Tixi3): Oggetto Tixi per manipolare il file CPACS.
+        common_params(list[dict]):
+        mesh_params (list[dict]): Lista di dizionari con path e value per i parametri principali della mesh.
+        su2_params (list[dict]): Lista di dizionari con path e value per i parametri SU2.
+    """
+    if not tixi.checkElement(GMSH_XPATH):
+        tixi.createElement("/cpacs/toolspecific/CEASIOMpy", "mesh")
+        tixi.createElement("/cpacs/toolspecific/CEASIOMpy/mesh", "gmshOptions")
+
+    for key, values in common_params.items():
+        common_path = f"{GMSH_XPATH}/{key}"
+        create_or_update_element(tixi, f"{common_path}", values)
+
+    for key, values in mesh_params.items():
+        mesh_path = f"{GMSH_XPATH}/{key}"
+        create_or_update_element(tixi, f"{mesh_path}", values)
+        # Add aeromap name
+
+    create_or_update_element(tixi, f"{SU2_AEROMAP_UID_XPATH}", aeromap_name)
+
+    if not tixi.checkElement(SU2_XPATH):
+        tixi.createElement("/cpacs/toolspecific/CEASIOMpy", "aerodynamics")
+        tixi.createElement("/cpacs/toolspecific/CEASIOMpy/aerodynamics", "su2")
+
+    for key, values in su2_params.items():
+        su2_path = f"{SU2_XPATH}/{key}"
+        create_or_update_element(tixi, f"{su2_path}", values)

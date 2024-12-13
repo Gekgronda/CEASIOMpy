@@ -87,10 +87,10 @@ n = int(input("Insert the number of samples: "))
 # Definizione dei range degli input
 ranges = np.array(
     [
-        [0, 1000],  # Altezza: da 0 a 1000 m
-        [0.1, 0.5],  # Mach: da 0.1 a 0.5
-        [0, 15],  # AoA: da 0° a 15°
-        [-2, 2],  # AoS: da -2° a 2°
+        [9000, 12000],  # Altezza: da 0 a 1000 m
+        [0.7, 0.9],  # Mach
+        [2, 5],  # AoA
+        [0, 0],  # AoS
     ]
 )
 
@@ -108,7 +108,7 @@ print(samples)
 output_filename = input("Enter the name of the CSV file (with .csv extension): ")
 
 # Percorso della cartella in cui salvare il file
-output_directory = "/wrk/Gronda/dataframe_new/"
+output_directory = "/wrk/Gronda/labAR/EULER/00_symmetry/datasets/"
 
 # Crea il percorso completo del file
 full_path = os.path.join(output_directory, output_filename)

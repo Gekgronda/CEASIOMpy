@@ -242,6 +242,60 @@ def append_to_new_csv(data, original_filename):
     return new_filename
 
 
+# ============== non in ordine: COLLECT DATA FROM SU2 ========
+
+
+def extract_coefficients_from_SU2(base_path):
+    """Estrae CL, CD, CSF, CMx, CMy, e CMz dai file .dat nelle sottocartelle, in ordine naturale."""
+    results = []
+
+    # Ordina le directory in ordine naturale
+    directories = sorted(
+        [d for d in os.listdir(base_path) if d.startswith("Case")], key=sort_natural
+    )
+
+    for i, directory in enumerate(directories):
+        directory_path = os.path.join(base_path, directory)
+        file_path = os.path.join(directory_path, "forces_breakdown.dat")
+
+        if os.path.isfile(file_path):
+            with open(file_path, "r") as file:
+                content = file.read()
+
+            # Cerca i valori dei coefficienti
+            matches = {
+                "Total CL": re.search(r"Total CL:\s+([-+]?\d*\.\d+|\d+)", content),
+                "Total CD": re.search(r"Total CD:\s+([-+]?\d*\.\d+|\d+)", content),
+                "Total CSF": re.search(r"Total CSF:\s+([-+]?\d*\.\d+|\d+)", content),
+                "Total CMx": re.search(r"Total CMx:\s+([-+]?\d*\.\d+|\d+)", content),
+                "Total CMy": re.search(r"Total CMy:\s+([-+]?\d*\.\d+|\d+)", content),
+                "Total CMz": re.search(r"Total CMz:\s+([-+]?\d*\.\d+|\d+)", content),
+            }
+
+            # Aggiunge i risultati se tutti i valori sono trovati
+            if all(matches.values()):
+                results.append(
+                    {
+                        "Index": i,
+                        "Total CL": float(matches["Total CL"].group(1)),
+                        "Total CD": float(matches["Total CD"].group(1)),
+                        "Total CSF": float(matches["Total CSF"].group(1)),
+                        "Total CMx": float(matches["Total CMx"].group(1)),
+                        "Total CMy": float(matches["Total CMy"].group(1)),
+                        "Total CMz": float(matches["Total CMz"].group(1)),
+                    }
+                )
+            else:
+                print(f"Valori mancanti in {file_path}")
+
+            # Log per ogni directory elaborata
+            print(f"Directory: {directory}, Matches: {matches}")
+        else:
+            print(f"File non trovato: {file_path}")
+
+    return results
+
+
 # ================= FIRST KRIGING MODEL =======================================
 
 
@@ -361,18 +415,24 @@ def normalize_data(data):
     scaler_X = MinMaxScaler()
     X_normalized = scaler_X.fit_transform(X)
 
-    # Normalize outputs
+    # Normalize outputs (cycle bec every output has diff scale)
     y_normalized = {}
+    scalers_y = {}
     for key, values in y.items():
         scaler_y = MinMaxScaler()
         y_normalized[key] = scaler_y.fit_transform(values.reshape(-1, 1)).flatten()
+        scalers_y[key] = scaler_y  # in modo da de-scalare i diversi output
 
     return {
         "dataset": {
             "df": df,
             "X_normalized": X_normalized,
             "y_normalized": y_normalized,
-        }
+        },
+        "scalers": {
+            "scaler_X": scaler_X,
+            "scaler_y": scalers_y,  # Dictionary of output scalers
+        },
     }
 
 
@@ -418,35 +478,74 @@ def Kriging(X_train, y_train, theta, corr, poly):
 
 
 # STUDIA LA DOCUMENTAZIONE (hyperparametri)
-def MF_Kriging(Xt_hf, yt_hf, Xt_mf, yt_mf, Xt_lf, yt_lf):
-    # Build the MFK object with 3 levels
-    sm = MFK(theta0=[1e-2], theta_bounds=[1e-06, 100.0], hyper_opt="TNC")
-    # low-fidelity dataset names being integers from 0 to level-1
-    sm.set_training_values(Xt_lf, yt_lf, name=0)
-    sm.set_training_values(Xt_mf, yt_mf, name=1)
-    # high-fidelity dataset without name
-    sm.set_training_values(Xt_hf, yt_hf)
-    # train the model
-    sm.train()
-    return
+def MF_Kriging(Xt_lf, yt_lf, Xt_mf, yt_mf, theta, corr, poly, Xt_hf=None, yt_hf=None):
+    """
+    Create a multi-fidelity Kriging model with 2 or 3 levels.
+
+    Args:
+        Xt_lf (array): Input for low-fidelity data.
+        yt_lf (array): Output for low-fidelity data.
+        Xt_mf (array): Input for mid-fidelity data.
+        yt_mf (array): Output for mid-fidelity data.
+        Xt_hf (array, optional): Input for high-fidelity data. Defaults to None.
+        yt_hf (array, optional): Output for high-fidelity data. Defaults to None.
+
+    Returns:
+        MFK: Trained Kriging model.
+    """
+    # Create the Kriging model
+    model = MFK(theta0=theta, theta_bounds=[1e-06, 100.0], corr=corr, poly=poly, hyper_opt="TNC")
+
+    # Set training values for the fidelity levels
+    model.set_training_values(Xt_lf, yt_lf, name=0)  # Low-fidelity
+
+    # Add high-fidelity data if provided
+    if Xt_hf is None and yt_hf is None:
+        model.set_training_values(Xt_mf, yt_mf)  # Mid-fidelity
+    else:
+        model.set_training_values(Xt_mf, yt_mf, name=0)  # Mid-fidelity
+        model.set_training_values(Xt_hf, yt_hf)  # High-fidelity without a name
+
+    # Train the model
+    model.train()
+
+    return model
 
 
-def MF_CoKriging(X_hf_train, X_mf, X_lf, y_hf_train, y_mf, y_lf):
+def MF_CoKriging(X_lf, y_lf, X_mf, y_mf, X_hf_train=None, y_hf_train=None):
+    """
+    Create a multi-fidelity Co-Kriging model with 2 or 3 levels.
+
+    Args:
+        X_lf (array): Input for low-fidelity data.
+        y_lf (array): Output for low-fidelity data.
+        X_mf (array): Input for mid-fidelity data.
+        y_mf (array): Output for mid-fidelity data.
+        X_hf_train (array, optional): Input for high-fidelity data. Defaults to None.
+        y_hf_train (array, optional): Output for high-fidelity data. Defaults to None.
+
+    Returns:
+        MFCK: Trained Co-Kriging model.
+    """
 
     n_start = 100
     opti = "Cobyla"
 
-    # Build the MFCK model with 3 levels
-    sm = MFCK(theta0=[1e-2], theta_bounds=[1e-06, 100.0], hyper_opt=opti, n_start=n_start)
-    # low-fidelity dataset names being integers from 0 to level-1
-    sm.set_training_values(X_lf, y_lf, name=0)
-    sm.set_training_values(X_mf, y_mf, name=1)
-    # high-fidelity dataset without name
-    sm.set_training_values(X_hf_train, y_hf_train)
-    # train the model
-    sm.train()
+    # Create the Co-Kriging model
+    model = MFCK(theta0=[1e-2], theta_bounds=[1e-06, 100.0], hyper_opt=opti, n_start=n_start)
 
-    return sm
+    # Set training values for the fidelity levels
+    model.set_training_values(X_lf, y_lf, name=0)  # Low-fidelity
+    model.set_training_values(X_mf, y_mf, name=1)  # Mid-fidelity
+
+    # Add high-fidelity data if provided
+    if X_hf_train is not None and y_hf_train is not None:
+        model.set_training_values(X_hf_train, y_hf_train)  # High-fidelity without a name
+
+    # Train the model
+    model.train()
+
+    return model
 
 
 # Funzione per fare previsioni con Kriging
@@ -457,17 +556,17 @@ def predict_model(model, X_test, y_test):
     print("Kriging,  err: " + str(compute_rms_error(model, X_test, y_test)))
 
     # Plot the function and the prediction
-    fig = plt.figure()
-    plt.plot(y_test, y_test, "-", label="$y_{true}$")
-    plt.plot(y_test, y_pred, "r.", label=r"$\hat{y}$")
+    # fig = plt.figure()
+    # plt.plot(y_test, y_test, "-", label="$y_{true}$")
+    # plt.plot(y_test, y_pred, "r.", label=r"$\hat{y}$")
 
-    plt.xlabel("$y_{true}$")
-    plt.ylabel(r"$\hat{y}$")
+    # plt.xlabel("$y_{true}$")
+    # plt.ylabel(r"$\hat{y}$")
 
-    plt.legend(loc="upper left")
-    plt.title("Kriging model: validation of the prediction model")
+    # plt.legend(loc="upper left")
+    # plt.title("Kriging model: validation of the prediction model")
 
-    plt.show()
+    # plt.show()
 
     # Value of theta
     print("theta values", model.optimal_theta)
@@ -476,17 +575,28 @@ def predict_model(model, X_test, y_test):
 
 
 # Funzione per fare previsioni sui dati di test con mf-kriging
-def predict_mf_model(model, X_test):
+def predict_mf_model(model, X_test, y_test):
     """Make prediction"""
-    y_pred_hf = sm.predict_values(X_test)
-    y_pred_lf = sm._predict_intermediate_values(X_test, 1)
-    y_pred_mf = sm._predict_intermediate_values(X_test, 2)
-    var_hf = sm.predict_variances(X_test)
-    varAll, _ = sm.predict_variances_all_levels(X_test)
-    var_lf = varAll[:, 0].reshape(-1, 1)
-    var_mf = varAll[:, 1].reshape(-1, 1)
+    y_pred = model.predict_values(X_test)  # cosi fa la previsione sul livello piu alto
+    var = model.predict_variances(X_test)
+    # varAll, _ = model.predict_variances_all_levels(X_test)
+    # var_lf = varAll[:, 0].reshape(-1, 1)
+    # var_mf = varAll[:, 1].reshape(-1, 1)
 
-    return y_pred_hf, y_pred_mf, y_pred_lf, var_hf, var_mf, var_lf
+    # Plot the function and the prediction
+    # fig = plt.figure()
+    # plt.plot(y_test, y_test, "-", label="$y_{true}$")
+    # plt.plot(y_test, y_pred, "r.", label=r"$\hat{y}$")
+
+    # plt.xlabel("$y_{true}$")
+    # plt.ylabel(r"$\hat{y}$")
+
+    # plt.legend(loc="upper left")
+    # plt.title("Kriging model: validation of the prediction model")
+
+    # plt.show()
+
+    return {"y_pred": y_pred, "variance": var}
 
 
 # Funzione per fare previsioni sui dati di test con mf-co-kriging
