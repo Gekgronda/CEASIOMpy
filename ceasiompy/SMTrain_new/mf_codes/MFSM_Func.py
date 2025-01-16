@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import shutil
 import csv
 import re
 import matplotlib.pyplot as plt
@@ -14,9 +15,119 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from smt.utils.misc import compute_rms_error
 from sklearn.metrics import mean_squared_error, mean_absolute_error
+from scipy.interpolate import griddata
 import pickle
+from tixi3.tixi3wrapper import Tixi3
+import subprocess
+from sklearn.preprocessing import MinMaxScaler
+from smt.utils.misc import compute_rms_error
+
+from CPACS_Func import (
+    add_new_aeromap,
+    avl_update,
+    change_reference_value,
+    euler_update,
+    rans_update,
+)
+
+
+def choose_fidelity_workflow():
+    """
+    Allows the user to select the number of fidelity levels for the surrogate model
+    and define the workflow for each fidelity level.
+    """
+
+    # TO DO
+    # - aggiungere controllo input
+    # - controllare logica
+
+    # Input validation for fidelity level
+    while True:
+        fidelity_level = (
+            input(
+                "Choose how many fidelity levels to train the surrogate model (1, 2, 3) [default: 3]: "
+            )
+            or "3"
+        )
+        if fidelity_level in {"1", "2", "3"}:
+            fidelity_level = int(fidelity_level)
+            break
+        else:
+            print("Invalid input. Please enter 1, 2, or 3.")
+
+    print("Now select your workflow:")
+    print(
+        "You can choose to perform Low Fidelity simulation with PyAvl Module, or High Fidelity simulations with SU2 Module"
+    )
+    print(
+        "SU2 module can perform both Euleran or RANS simulations, you can choose Euleran simulations, RANS or both"
+    )
+    print(
+        "In this module results from Euleran simulations are called Medium Fidelity (MF) and High Fidelity (HF) from RANS "
+    )
+
+    print("\nRecap workflow options:")
+    print("  - LF: Low Fidelity (PyAVL)")
+    print("  - MF: Medium Fidelity (SU2 Euleran)")
+    print("  - HF: High Fidelity (SU2 RANS)")
+    print("")
+
+    # Fidelity workflow selection based on fidelity level
+    if fidelity_level == 1:
+        print("One level of fidelity selected.")
+        while True:
+            fidelity_workflow = (
+                input("Select one fidelity level (LF, MF, or HF): ").strip().upper()
+            )
+            if fidelity_workflow in {"LF", "MF", "HF"}:
+                break
+            else:
+                print("Invalid choice. Please choose LF, MF, or HF.")
+    elif fidelity_level == 2:
+        print("Two levels of fidelity selected.")
+        while True:
+            fidelity_workflow = (
+                input(
+                    "Select two fidelity levels (e.g., 'LF and MF', 'LF and HF', or 'MF and HF'): "
+                )
+                .strip()
+                .upper()
+            )
+            if fidelity_workflow in {"LF AND MF", "LF AND HF", "MF AND HF"}:
+                break
+            else:
+                print("Invalid choice. Please choose 'LF and MF', 'LF and HF', or 'MF and HF'.")
+    else:
+        print("All levels of fidelity selected.")
+        fidelity_workflow = "LF, MF, and HF"
+
+    print(f"\nFidelity level: {fidelity_level}")
+    print(f"Selected workflow: {fidelity_workflow}")
+
+    return fidelity_level, fidelity_workflow
+
 
 # ========= FIRST LATIN HYPERCUBE SAMPLING ==========
+
+
+def find_and_save_file(file_name, search_path, destination_folder):
+    """
+    Search for a file in the specified path and save it to the destination folder.
+
+    Parameters:
+        file_name (str): Name of the file to search for.
+        search_path (str): Path to search in.
+        destination_folder (str): Folder to copy the file to.
+    """
+    for root, dirs, files in os.walk(search_path):
+        if file_name in files:
+            source_path = os.path.join(root, file_name)
+            os.makedirs(destination_folder, exist_ok=True)  # Create folder if not exists
+            shutil.copy(source_path, destination_folder)
+            print(f"File '{file_name}' copied to '{destination_folder}'.")
+            return
+
+    print(f"File '{file_name}' not found in '{search_path}'.")
 
 
 def get_user_inputs():
@@ -25,11 +136,11 @@ def get_user_inputs():
     Otherwise select default parameters
     """
     # Default values
-    default_samples = 100
+    default_samples = 30
     default_ranges = {
-        "altitude": [0, 1000],
-        "machNumber": [0.1, 0.5],
-        "angleOfAttack": [0, 15],
+        "altitude": [10000, 10000],
+        "machNumber": [0.1, 0.7],
+        "angleOfAttack": [-2, 10],
         "angleOfSideslip": [0, 0],
     }
 
@@ -51,9 +162,7 @@ def get_user_inputs():
     return n_samples, ranges
 
 
-def lh_sampling(
-    ranges, n_samples, plot_dim1="altitude", plot_dim2="angleOfAttack", random_state=None
-):
+def lh_sampling(ranges, n_samples, random_state=None):
     """
     Perform lhsampling of given domain (range and number of samples).
     Apply desired precision (decimal number)
@@ -72,17 +181,31 @@ def lh_sampling(
     # Post-process sampled data to apply desired precision
     for key in sampled_dict:
         if key in ["altitude", "machNumber"]:
-            sampled_dict[key] = np.round(sampled_dict[key], 2)  # Two decimal places
+            sampled_dict[key] = np.round(sampled_dict[key], 1)  # One decimal places
         elif key in ["angleOfAttack", "angleOfSideslip"]:
             sampled_dict[key] = np.round(sampled_dict[key]).astype(int)  # Integers
+
+    # Convert post-processed dictionary back to array for plotting
+    processed_samples = np.column_stack([sampled_dict[key] for key in ranges.keys()])
+
+    return sampled_dict, processed_samples
+
+
+def plot_doe(
+    processed_samples,
+    ranges,
+    n_samples,
+    plot_dim1="altitude",
+    plot_dim2="angleOfAttack",
+    highlight_points=None,
+):
 
     # Visualization of the results
     print("Visualization of DOE: ")
     xlimits = np.array(list(ranges.values()))
-    num = n_samples
     intervals = []
     for i in range(len(xlimits)):
-        intervals.append(np.linspace(xlimits[i][0], xlimits[i][1], num + 1))
+        intervals.append(np.linspace(xlimits[i][0], xlimits[i][1], n_samples + 1))
 
     # Map plot dimensions to their indices
     dim_keys = list(ranges.keys())
@@ -90,7 +213,18 @@ def lh_sampling(
     PLOT2 = dim_keys.index(plot_dim2)
 
     fig, ax = plt.subplots(1)
-    ax.plot(samples[:, PLOT1], samples[:, PLOT2], ".")
+
+    ax.plot(processed_samples[:, PLOT1], processed_samples[:, PLOT2], ".")
+
+    # Highlight specific points if provided
+    if highlight_points is not None:
+        ax.plot(
+            highlight_points[:, PLOT1],
+            highlight_points[:, PLOT2],
+            "ro",
+            label="High Variance Points",
+        )
+
     for i in range(len(intervals[0])):
         ax.plot(
             [intervals[PLOT1][i], intervals[PLOT1][i]],
@@ -109,8 +243,6 @@ def lh_sampling(
     ax.legend(["Initial LHS"], bbox_to_anchor=(1.05, 0.6))
 
     plt.show()
-
-    return sampled_dict
 
 
 def save_to_csv(samples, filename):
@@ -141,7 +273,82 @@ def save_to_csv(samples, filename):
     print(f"File saved to: {filename}")
 
 
-# ============= COLLECT DATA FROM AVL SIMULATIONS AND UPDATE  ================
+def doe_workflow(default_doe_path, directory_path):
+    """
+    Workflow to handle Design of Experiment (DoE).
+
+    Parameters:
+        default_doe_path (str): Path to the default DoE file.
+        directory_path (str): Directory to save new DoE files.
+
+    Returns:
+        tuple: A DataFrame containing the DoE, ranges, and processed samples.
+    """
+    print("Do you want to select manually DOE points (YES, NO)? [default: NO]")
+    print("If YES: select manually number of points and ranges.")
+    print("If NO: insert a file.csv with DoE.")
+    define_doe_or_default = input(": ") or "NO"
+
+    if define_doe_or_default.upper() == "YES":
+        # Insert a domain of interest
+        n_samples, ranges = get_user_inputs()
+
+        # Latin Hypercube Sampling (DoE)
+        print("Sampling...")
+        samples, processed_samples = lh_sampling(ranges, n_samples)
+
+        # Save DoE to CSV
+        output_filename1 = "LHS_dataset.csv"
+        full_path1 = os.path.join(directory_path, output_filename1)
+        save_to_csv(samples, full_path1)
+        print(f"New DoE saved in {full_path1}")
+
+    # AGGIUNGERE VERIFICHE
+
+    else:
+        doe_path = input("Insert file.csv path: ")
+        if not doe_path:  # Use default path if no path is provided
+            print(f"No path given. Using default path: {default_doe_path}")
+            doe_path = default_doe_path
+        try:
+            # Load the DoE from the file
+            df = pd.read_csv(doe_path)
+            print(f"Loaded database from: {doe_path}")
+
+            # Convert DataFrame to dictionary
+            samples = df.to_dict(orient="list")
+
+            # Compute ranges and processed samples
+            ranges = {col: [df[col].min(), df[col].max()] for col in df.columns}
+            processed_samples = df.to_numpy()
+            n_samples = len(df)
+            full_path1 = doe_path
+
+        except Exception as e:
+            print(f"Error loading database from {doe_path}: {e}")
+            print(f"Falling back to default path: {default_doe_path}")
+            try:
+                df = pd.read_csv(default_doe_path)
+                print(f"Loaded database from default path: {default_doe_path}")
+
+                # Convert DataFrame to dictionary
+                samples = df.to_dict(orient="list")
+
+                # Compute ranges and processed samples
+                ranges = {col: [df[col].min(), df[col].max()] for col in df.columns}
+                processed_samples = df.to_numpy()
+                n_samples = len(df)
+                full_path1 = default_doe_path
+
+            except Exception as e_default:
+                raise FileNotFoundError(f"Failed to load default database: {e_default}")
+
+    plot_doe(processed_samples, ranges, n_samples, "angleOfAttack", "machNumber")
+
+    return samples, ranges, processed_samples, n_samples, full_path1
+
+
+# ============= AVL WORKFLOW  ================
 
 
 def get_latest_workflow(base_directory):
@@ -242,6 +449,147 @@ def append_to_new_csv(data, original_filename):
     return new_filename
 
 
+def launch_avl_simulations(
+    default_first_kriging_dataset_path, directory_path, input_cpacs_path, full_path1
+):
+
+    first_kriging_dataset_path = None  # Initialize with None
+
+    # LAUNCH AVL COMMAND
+    print("CPACS updated, running PyAVL Module in CEASIOMpy...")
+    command = (
+        f"cd {os.path.abspath(directory_path)} && "
+        f"ceasiompy_run -m {os.path.abspath(input_cpacs_path)} PyAVL"
+    )
+
+    try:
+        # Run the command with subprocess.run()
+        print("PyAVL simulation started. Press Ctrl+C to interrupt manually.")
+        result = subprocess.run(command, shell=True, check=True, text=True, capture_output=True)
+
+        # Check if the process completed successfully
+        if result.returncode == 0:
+            print("Simulations completed successfully!")
+        else:
+            print("An error occurred during the simulations!")
+
+    # Exception to manage "Ctrl+C" command by the developer
+    except subprocess.CalledProcessError as e:
+        print(f"Error occurred during the simulation: {e.stderr}")
+        # Use the default dataset if there was an error
+        first_kriging_dataset_path = default_first_kriging_dataset_path
+        result = None  # Ensure result is defined
+    except KeyboardInterrupt:
+        print("\nSimulation manually interrupted.")
+        # Manually set to default dataset if interrupted
+        first_kriging_dataset_path = default_first_kriging_dataset_path
+        result = None  # Ensure result is defined
+
+    # PROCESS SIMULATION RESULTS OR USE DEFAULT DATASET
+    if result and result.returncode == 0:
+        # If the process completed, analyze the results
+        latest_workflow_path = get_latest_workflow(directory_path)
+        if latest_workflow_path:
+            results_path = os.path.join(latest_workflow_path, "Results", "PyAVL")
+            print("Latest Workflow:", latest_workflow_path)
+            print("Results Path:", results_path)
+
+            if os.path.isdir(results_path):
+                data1 = extract_coefficients_from_AVL(results_path)
+                print("Coefficents got from AVL simulations:")
+                print(data1)
+                first_kriging_dataset_path = append_to_new_csv(data1, full_path1)
+            else:
+                print(f"Error: The directory {results_path} does not exist.")
+        else:
+            print("No workflow found.")
+    else:
+        # Use the default dataset if the process was interrupted
+        print(f"Using the default dataset: {default_first_kriging_dataset_path}")
+        first_kriging_dataset_path = default_first_kriging_dataset_path
+
+    return first_kriging_dataset_path
+
+
+def avl_workflow(
+    input_cpacs_path,
+    directory_path,
+    default_first_kriging_dataset_path,
+    full_path1,
+    samples,
+    aeromap_uid,
+    aeromap_name,
+    avl_parameters,
+):
+
+    print("Do you want to proceed with AVL simulations? [default: NO]")
+    print("If YES: proceed with AVL configuration")
+    print("If NO: insert file.csv to train first kriging")
+    avl_yes_or_not = input(": ") or "NO"
+
+    if avl_yes_or_not.upper() == "YES":
+        print("Updating aeromap and reference value for AVL simulations")
+        input("Press ENTER to continue....")
+
+        # Aeromap updating on CPACS
+        tixi = Tixi3()
+        tixi.open(input_cpacs_path)
+
+        try:
+            # add the new aeroMap
+            add_new_aeromap(tixi, samples, aeromap_uid, aeromap_name)
+            # change_reference_value(tixi, reference_values)
+            # save the updated CPACS file
+            tixi.save(input_cpacs_path)
+            print("New aeroMap added successfully!")
+        except Exception as e:
+            print(f"Error adding aeroMap: {e}")
+        finally:
+            tixi.close()
+
+        # AVL updating on CPACS
+        print("Updating parameters for AVL simulations")
+        input("Press ENTER to continue....")
+
+        tixi = Tixi3()
+        tixi.open(input_cpacs_path)
+
+        try:
+            # avl update
+            avl_update(tixi, aeromap_name, avl_parameters)
+            # save the updated CPACS file
+            tixi.save(input_cpacs_path)
+            print("AVL parameters updated successfully!")
+        except Exception as e:
+            print(f"Error updating parameters: {e}")
+        finally:
+            tixi.close()
+
+        input("Press ENTER to continue....")
+
+        # Launch AVL command
+        print("CPACS updated, running PyAVL Module in CEASIOMpy...")
+        command = (
+            f"cd {os.path.abspath(directory_path)} && "
+            f"ceasiompy_run -m {os.path.abspath(input_cpacs_path)} PyAVL"
+        )
+
+        # Obtain path of train dataset
+        first_kriging_dataset_path = launch_avl_simulations(
+            default_first_kriging_dataset_path, directory_path, input_cpacs_path, full_path1
+        )
+
+    else:
+
+        first_kriging_dataset_path = input("Insert file.csv path: ")
+
+        if not first_kriging_dataset_path:  # Use default path if no path is provided
+            print(f"No path given. Using default path: {default_first_kriging_dataset_path}")
+            first_kriging_dataset_path = default_first_kriging_dataset_path
+
+    return first_kriging_dataset_path
+
+
 # ============== non in ordine: COLLECT DATA FROM SU2 ========
 
 
@@ -299,86 +647,55 @@ def extract_coefficients_from_SU2(base_path):
 # ================= FIRST KRIGING MODEL =======================================
 
 
-def load_and_split_data(path, default_path):
+def load_and_split_data(path):
     """
-    Load database, split inputs and outputs, handle issues.
+    Load database from the given path, split inputs and outputs, and handle errors.
+    Handles cases where 'Total CMy' is labeled as 'Total CM'.
 
     Parameters:
-        path (str): Database path provided by the user.
-        default_path (str): Database default path.
+        path (str): Path to the database file.
 
     Returns:
         dict: Dictionary containing inputs, outputs, and the full dataframe.
     """
+    try:
+        # Load the database
+        df = pd.read_csv(path)
+        print(f"Loaded database from: {path}")
+    except Exception as e:
+        raise FileNotFoundError(f"Error loading database from {path}: {e}")
 
-    def load_database(file_path, default_path):
-        """
-        Load the database from the given path, or fallback to default.
+    # Handle special case: 'Total CM' as 'Total CMy'
+    if "Total CM" in df.columns and "Total CMy" not in df.columns:
+        df.rename(columns={"Total CM": "Total CMy"}, inplace=True)
+        print("Notice: Column 'Total CM' found and renamed to 'Total CMy'.")
 
-        Parameters:
-            file_path (str): Path to the file to load.
-            default_path (str): Fallback path if the first one fails.
+    # Define input and output columns
+    input_columns = ["altitude", "machNumber", "angleOfAttack", "angleOfSideslip"]
+    output_columns = {
+        "CL": "Total CL",
+        "CD": "Total CD",
+        "CSF": "Total CSF",
+        "CMx": "Total CMx",
+        "CMy": "Total CMy",
+        "CMz": "Total CMz",
+    }
 
-        Returns:
-            pd.DataFrame: Loaded dataframe.
-        """
-        if not file_path:  # Use default path if no path is provided
-            print(f"No path given. Using default path: {default_path}")
-            file_path = default_path
-        try:
-            df = pd.read_csv(file_path)
-            print(f"Loaded database from: {file_path}")
-            return df
-        except Exception as e:
-            print(f"Error loading database from {file_path}: {e}")
-            print(f"Falling back to default path: {default_path}")
-            try:
-                return pd.read_csv(default_path)
-            except Exception as e_default:
-                raise FileNotFoundError(f"Failed to load default database: {e_default}")
+    # Check for missing input columns
+    missing_inputs = [col for col in input_columns if col not in df.columns]
+    if missing_inputs:
+        raise KeyError(f"Missing input columns: {missing_inputs}")
 
-    # Load the database
-    df = load_database(path, default_path)
+    # Extract inputs
+    X = df[input_columns].values
 
-    def split_data(df):
-        """
-        Split dataframe into inputs and outputs.
-
-        Parameters:
-            df (pd.DataFrame): The full dataframe.
-
-        Returns:
-            tuple: Inputs (X) as a numpy array and outputs (y) as a dictionary.
-        """
-        input_columns = ["altitude", "machNumber", "angleOfAttack", "angleOfSideslip"]
-        output_columns = {
-            "CL": "Total CL",
-            "CD": "Total CD",
-            "CSF": "Total CSF",
-            "CMx": "Total CMx",
-            "CMy": "Total CMy",
-            "CMz": "Total CMz",
-        }
-
-        # Check input columns
-        missing_inputs = [col for col in input_columns if col not in df.columns]
-        if missing_inputs:
-            raise KeyError(f"Missing input columns: {missing_inputs}")
-
-        X = df[input_columns].values
-
-        # Check and collect output columns
-        y = {}
-        for key, col in output_columns.items():
-            if col in df.columns:
-                y[key] = df[col].values
-            else:
-                print(f"Warning: Column '{col}' is missing and will be excluded from outputs.")
-
-        return X, y
-
-    # Split the data into inputs and outputs
-    X, y = split_data(df)
+    # Extract outputs
+    y = {}
+    for key, col in output_columns.items():
+        if col in df.columns:
+            y[key] = df[col].values
+        else:
+            print(f"Warning: Column '{col}' is missing and will be excluded from outputs.")
 
     return {"dataset": {"X": X, "y": y, "df": df}}
 
@@ -503,7 +820,7 @@ def MF_Kriging(Xt_lf, yt_lf, Xt_mf, yt_mf, theta, corr, poly, Xt_hf=None, yt_hf=
     if Xt_hf is None and yt_hf is None:
         model.set_training_values(Xt_mf, yt_mf)  # Mid-fidelity
     else:
-        model.set_training_values(Xt_mf, yt_mf, name=0)  # Mid-fidelity
+        model.set_training_values(Xt_mf, yt_mf, name=1)  # Mid-fidelity
         model.set_training_values(Xt_hf, yt_hf)  # High-fidelity without a name
 
     # Train the model
@@ -555,19 +872,6 @@ def predict_model(model, X_test, y_test):
     var = model.predict_variances(X_test)
     print("Kriging,  err: " + str(compute_rms_error(model, X_test, y_test)))
 
-    # Plot the function and the prediction
-    # fig = plt.figure()
-    # plt.plot(y_test, y_test, "-", label="$y_{true}$")
-    # plt.plot(y_test, y_pred, "r.", label=r"$\hat{y}$")
-
-    # plt.xlabel("$y_{true}$")
-    # plt.ylabel(r"$\hat{y}$")
-
-    # plt.legend(loc="upper left")
-    # plt.title("Kriging model: validation of the prediction model")
-
-    # plt.show()
-
     # Value of theta
     print("theta values", model.optimal_theta)
 
@@ -579,22 +883,9 @@ def predict_mf_model(model, X_test, y_test):
     """Make prediction"""
     y_pred = model.predict_values(X_test)  # cosi fa la previsione sul livello piu alto
     var = model.predict_variances(X_test)
-    # varAll, _ = model.predict_variances_all_levels(X_test)
-    # var_lf = varAll[:, 0].reshape(-1, 1)
-    # var_mf = varAll[:, 1].reshape(-1, 1)
 
-    # Plot the function and the prediction
-    # fig = plt.figure()
-    # plt.plot(y_test, y_test, "-", label="$y_{true}$")
-    # plt.plot(y_test, y_pred, "r.", label=r"$\hat{y}$")
-
-    # plt.xlabel("$y_{true}$")
-    # plt.ylabel(r"$\hat{y}$")
-
-    # plt.legend(loc="upper left")
-    # plt.title("Kriging model: validation of the prediction model")
-
-    # plt.show()
+    # Value of theta
+    print("theta values", model.optimal_theta)
 
     return {"y_pred": y_pred, "variance": var}
 
@@ -605,7 +896,27 @@ def predict_mfco_model(model, X_test):
     mn, cn = model.predict_all_levels(X_test)
     pred, cov = model._predict(X_test)
 
+    # Value of theta
+    print("theta values", model.optimal_theta)
+
     return mn, cn, pred, cov
+
+
+def plot_validation(y_test, predictions, label):
+    """Crea un grafico Predicted vs Actual"""
+    plt.figure(figsize=(6, 6))
+    plt.scatter(y_test, predictions, color="blue", alpha=0.5)
+    plt.plot(
+        [y_test.min(), y_test.max()],
+        [y_test.min(), y_test.max()],
+        "r--",
+        lw=2,
+    )
+    plt.title(f"Predicted vs Actual {label}")
+    plt.xlabel(f"Actual {label}")
+    plt.ylabel(f"Predicted {label}")
+    plt.grid()
+    plt.show()
 
 
 def plot_results(y_hf_test, hf_pred, label):
@@ -640,4 +951,192 @@ def plot_results(y_hf_test, hf_pred, label):
     plt.xlabel(f"Actual {label}")
     plt.ylabel(f"Predicted {label}")
     plt.grid()
+    plt.show()
+
+
+# =================== SAVE MODEL ===============
+
+
+def save_model(model, model_directory, base_model_name, model_extension):
+    """
+    Salva il modello in un file unico nella directory specificata.
+
+    Parametri:
+    - model: il modello da salvare.
+    - model_directory: directory in cui salvare il modello.
+    - base_model_name: nome base per il modello (default "surrogate_model").
+    - model_extension: estensione del file (default ".pkl").
+    """
+    # Verifica che la directory esista, altrimenti la crea
+    if not os.path.exists(model_directory):
+        os.makedirs(model_directory)
+
+    # Crea il percorso del modello
+    model_path = os.path.join(model_directory, base_model_name + model_extension)
+
+    # Trova un nome di file che non esista già
+    counter = 1
+    while os.path.exists(model_path):
+        model_name = f"{base_model_name}_{counter}{model_extension}"
+        model_path = os.path.join(model_directory, model_name)
+        counter += 1
+
+    # Salva il modello
+    with open(model_path, "wb") as file:
+        pickle.dump(model, file)
+
+    print(f"Model saved to {model_path}")
+
+
+# ===================== VALIDATION ======================
+
+
+def plot_response_surface(
+    altitude, aos, X_train, Y_train, model, coeff, mach_range=None, aoa_range=None
+):
+    """
+    Plot the response surface for a Kriging surrogate model.
+
+    Args:
+        altitude (float): Altitude to generate the response surface at.
+        X_train (np.ndarray): DoE points used for training (Mach, AoA, Altitude).
+        Y_train (np.ndarray): DoE values used for training (Coeff).
+        model (object): Trained surrogate model.
+        mach_range (list or None): Range of Mach numbers [min, max] (default: DoE range).
+        aoa_range (list or None): Range of AoA [min, max] (default: DoE range).
+    """
+    # Determine Mach and AoA ranges
+    if mach_range is None:
+        mach_range = [X_train[:, 1].min(), X_train[:, 1].max()]
+    if aoa_range is None:
+        aoa_range = [X_train[:, 2].min(), X_train[:, 2].max()]
+
+    # Create grid for Mach and AoA
+    mach_values = np.linspace(mach_range[0], mach_range[1], 70)
+    aoa_values = np.linspace(aoa_range[0], aoa_range[1], 70)
+    Mach, AoA = np.meshgrid(mach_values, aoa_values)
+
+    # Generate prediction points
+    X_pred = np.column_stack(
+        [np.full(Mach.size, altitude), Mach.ravel(), AoA.ravel(), np.full(Mach.size, aos)]
+    )
+
+    # Predict on the grid
+    predictions = predict_model(model, X_pred, y_test=None)
+    y_pred = predictions["y_pred"]
+    coeff_pred_surface = y_pred.reshape(Mach.shape)
+
+    # Filter DoE points at the selected altitude
+    doe_idx = np.isclose(X_train[:, 0], altitude)
+    doe_points = X_train[doe_idx]
+    doe_coeff = Y_train[doe_idx]
+
+    coeff_doe_surface = griddata(
+        points=doe_points[:, 1:3],  # Use Mach and AoA as the grid dimensions
+        values=doe_coeff,  # Corresponding coefficent values
+        xi=(Mach, AoA),  # The mesh grid
+        method="linear",  # Interpolation method
+        fill_value=np.nan,  # Fill missing values with NaN
+    )
+
+    # Plot the response surface
+    fig = plt.figure(figsize=(12, 8))
+    ax = fig.add_subplot(111, projection="3d")
+
+    # Plot predicted surface
+    surf_pred = ax.plot_surface(
+        Mach,
+        AoA,
+        coeff_pred_surface,
+        cmap="viridis",
+        alpha=0.8,
+        edgecolor="none",
+        label="Predicted Surface",
+    )
+
+    # Plot DoE surface
+    surf_doe = ax.plot_surface(
+        Mach,
+        AoA,
+        coeff_doe_surface,
+        cmap="plasma",
+        alpha=0.5,
+        edgecolor="none",
+        label="DoE Surface",
+    )
+
+    # Scatter DoE points
+    scatter = ax.scatter(
+        doe_points[:, 1],  # Mach of DoE points
+        doe_points[:, 2],  # AoA of DoE points
+        doe_coeff,  # values of DoE points
+        color="red",
+        label="DoE Points",
+        depthshade=False,
+    )
+
+    # Plot details
+    ax.set_xlabel("Mach Number")
+    ax.set_ylabel("Angle of Attack (AoA)")
+    ax.set_zlabel(f"{coeff}")
+    ax.set_title(f"Response Surface of {coeff} at Altitude = {altitude} m, AoS = {aos}°")
+
+    ax.invert_xaxis()
+
+    # Aggiungi la legenda solo per gli scatter
+    ax.legend(handles=[scatter], loc="upper right")  # Usa solo lo scatter nella legenda
+
+    plt.colorbar(surf_doe, ax=ax, shrink=0.5, aspect=10, label=f"Predicted {coeff}")
+    plt.show()
+
+
+def plot_coefficent_alpha_for_mach(
+    X_train, y_train, model, selected_mach_numbers, which_coefficent
+):
+    """
+    Plot the Coefficent vs AoA graph for three selected Mach numbers.
+
+    Args:
+        X_train (np.ndarray): DoE points used for training (Mach, AoA, Altitude).
+        Y_train (np.ndarray): DoE values used for training (Coefficent).
+        model (object): Trained surrogate model.
+        selected_mach_numbers (list): Three Mach numbers to visualize.
+    """
+
+    plt.figure(figsize=(10, 6))
+
+    # Plot DoE points and lines for reference
+    for mach in selected_mach_numbers:
+        mach_idx = np.isclose(X_train[:, 1], mach)
+        aoa_values = X_train[mach_idx, 2]  # AoA for this Mach
+        coef_values = y_train[mach_idx]  # Coefficent values for this Mach
+
+        # Scatter plot of DoE points
+        plt.scatter(
+            aoa_values,
+            coef_values,
+            label=f"DoE Points Mach = {mach:.2f}",
+            alpha=0.7,
+        )
+
+        # Sort AoA and corresponding coefficent values for a smooth line
+        sorted_indices = np.argsort(aoa_values)
+        sorted_aoa = aoa_values[sorted_indices]
+        sorted_coef = coef_values[sorted_indices]
+
+        # Line passing through the points
+        plt.plot(
+            sorted_aoa,
+            sorted_coef,
+            linestyle="-",
+            alpha=0.8,
+            label=f"Line Mach = {mach:.2f}",
+        )
+
+    # Plot details
+    plt.xlabel("Angle of Attack (AoA)")
+    plt.ylabel(f"{which_coefficent}")
+    plt.title(f"{which_coefficent} vs AoA for Selected Mach Numbers")
+    plt.legend()
+    plt.grid(True)
     plt.show()

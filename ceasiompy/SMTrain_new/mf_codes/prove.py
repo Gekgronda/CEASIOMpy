@@ -1,27 +1,88 @@
+import pandas as pd
 import numpy as np
 import os
+import subprocess
 from tixi3.tixi3wrapper import Tixi3
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+from MFSM_Func import (
+    find_and_save_file,
+    doe_workflow,
+    get_user_inputs,
+    load_and_split_data,
+    plot_distributions,
+    normalize_data,
+    lh_sampling,
+    save_to_csv,
+    get_latest_workflow,
+    extract_coefficients_from_AVL,
+    extract_coefficients_from_SU2,
+    append_to_new_csv,
+    validate_inputs,
+    test_training_data,
+    MF_CoKriging,
+    MF_Kriging,
+    Kriging,
+    predict_model,
+    predict_mf_model,
+    predict_mfco_model,
+    plot_validation,
+    plot_results,
+    plot_doe,
+    plot_coefficent_alpha_for_mach,
+    plot_response_surface,
+    save_model,
+)
 from CPACS_Func import (
     add_new_aeromap,
     avl_update,
     change_reference_value,
     euler_update,
+    rans_update,
 )
-from MFSM_Func import (
-    get_latest_workflow,
-    load_and_split_data,
-    extract_coefficients_from_SU2,
-    append_to_new_csv,
-    normalize_data,
-    test_training_data,
-    Kriging,
-    predict_model,
-    save_to_csv,
-    MF_Kriging,
-    predict_mf_model,
+from sklearn.preprocessing import MinMaxScaler
+from smt.utils.misc import compute_rms_error
+import pandas as pd
+import numpy as np
+import os
+import shutil
+import csv
+import re
+import matplotlib.pyplot as plt
+from matplotlib import cm
+import matplotlib.patches as patches
+from sklearn.preprocessing import MinMaxScaler
+from smt.surrogate_models import KRG
+from smt.applications import EGO, MFK
+from smt.sampling_methods import LHS
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+from smt.utils.misc import compute_rms_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from scipy.interpolate import griddata
+import pickle
+from tixi3.tixi3wrapper import Tixi3
+import os
+import numpy as np
+import pandas as pd
+from tixi3.tixi3wrapper import Tixi3
+from ceasiompy.utils.moduleinterfaces import CPACSInOut
+from ceasiompy.utils.commonxpath import (
+    AEROPERFORMANCE_XPATH,
+    AVL_XPATH,
+    AVL_AEROMAP_UID_XPATH,
+    CEASIOMPY_XPATH,
+    REF_XPATH,
+    GMSH_XPATH,
+    GMSH_SYMMETRY_XPATH,
+    GMSH_FARFIELD_FACTOR_XPATH,
+    GMSH_MESH_SIZE_ENGINES_XPATH,
+    GMSH_MESH_SIZE_FACTOR_FUSELAGE_XPATH,
+    GMSH_MESH_SIZE_FACTOR_WINGS_XPATH,
+    GMSH_MESH_SIZE_FARFIELD_XPATH,
+    MESH_XPATH,
+    SU2_XPATH,
+    SU2_AEROMAP_UID_XPATH,
 )
+
 
 # X_test = np.array(
 #     [
@@ -346,7 +407,7 @@ from MFSM_Func import (
 # print(f"Top 50 X_test samples: {top_50_X_test}")
 
 # # Estrazione delle prime 3 colonne per ogni array
-# x1, y1, z1 = (
+# x1, y, z1 = (
 #     top_50_X_test[:, 0],
 #     top_50_X_test[:, 1],
 #     top_50_X_test[:, 2],
@@ -358,7 +419,7 @@ from MFSM_Func import (
 # ax = fig.add_subplot(111, projection="3d")
 
 # # Scatter plot per il primo array (rosso)
-# ax.scatter(x1, y1, z1, c="r", marker="x", label="Dati 1")
+# ax.scatter(x1, y, z1, c="r", marker="x", label="Dati 1")
 
 # # Scatter plot per il secondo array (blu)
 # ax.scatter(x2, y2, z2, c="b", marker=".", label="Dati 2")
@@ -501,139 +562,599 @@ from MFSM_Func import (
 # tixi.save(input_cpacs_path)
 # tixi.close()
 
-# # TRAIN KRIGING
-train_first_kriging_dataset_path = ""  # aggiungendo questo va quello di default
-train_first_krigin_path = f"{train_first_kriging_dataset_path}"
-default_train_first_kriging_dataset_path = (
-    "/wrk/Gronda/labAR/prove_codice/LHS_dataset_TRAIN_default2.csv"
-)
-df1 = load_and_split_data(train_first_krigin_path, default_train_first_kriging_dataset_path)
-print(df1)
+# # # TRAIN KRIGING
+# first_kriging_dataset_path = ""  # aggiungendo questo va quello di default
+# train_first_krigin_path = f"{first_kriging_dataset_path}"
+# default_first_kriging_dataset_path = (
+#     "/wrk/Gronda/labAR/prove_codice/LHS_dataset_TRAIN_default2.csv"
+# )
+# df = load_and_split_data(train_first_krigin_path, default_first_kriging_dataset_path)
+# print(df)
 
-# Normalize data
-normalized_data1 = normalize_data(df1)
+# # Normalize data
+# normalized_data1 = normalize_data(df)
 
-df_norm1 = normalized_data1["dataset"]["df"]
-X_norm1 = normalized_data1["dataset"]["X_normalized"]
-y_norm1 = normalized_data1["dataset"]["y_normalized"]
-cl_norm1 = y_norm1["CL"]
+# df_norm1 = normalized_data1["dataset"]["df"]
+# X_norm1 = normalized_data1["dataset"]["X_normalized"]
+# y_norm1 = normalized_data1["dataset"]["y_normalized"]
+# cl_norm1 = y_norm1["CL"]
 
-# Split test and training
+# # Split test and training
 
-train_test_values1 = test_training_data(X_norm1, cl_norm1)
+# train_test_values1 = test_training_data(X_norm1, cl_norm1)
 
-X_train1 = train_test_values1["X_train"]
-X_test1 = train_test_values1["X_test"]
-y_train1 = train_test_values1["y_train"]
-y_test1 = train_test_values1["y_test"]
-
-
-base_path = "/wrk/Gronda/labAR/prove_codice"
-csv_filename2 = "/wrk/Gronda/labAR/prove_codice/EULER_dataset.csv"
-latest_workflow_path = get_latest_workflow(base_path)
-
-if latest_workflow_path:
-    # Append Results and SU2 to the latest Workflow path
-    results_path = os.path.join(latest_workflow_path, "Results", "SU2")
-    print("Latest Workflow:", latest_workflow_path)
-    print("Results Path:", results_path)
-else:
-    print("No Workflow found in the directory:", base_path)
-
-if os.path.isdir(results_path):
-    data2 = extract_coefficients_from_SU2(results_path)
-    print(data2)
-    train_second_kriging_dataset_path = append_to_new_csv(data2, csv_filename2)
-else:
-    print(f"Errore: La directory {latest_workflow_path} non esiste.")
-
-print(train_second_kriging_dataset_path)
+# X_train1 = train_test_values1["X_train"]
+# X_test1 = train_test_values1["X_test"]
+# y_train1 = train_test_values1["y_train"]
+# y_test1 = train_test_values1["y_test"]
 
 
-# # TRAIN MFKRIGING
-# train_dataset_path = ""  # aggiungendo questo va quello di default
-train_second_krigin_path = f"{train_second_kriging_dataset_path}"
-default_train_second_kriging_dataset_path = (
-    "/wrk/Gronda/labAR/prove_codice/EULER_dataset_TRAIN_default.csv"
-)
-df2 = load_and_split_data(train_second_krigin_path, default_train_second_kriging_dataset_path)
-print(df2)
+# base_path = "/wrk/Gronda/labAR/prove_codice"
+# csv_filename2 = "/wrk/Gronda/labAR/prove_codice/EULER_dataset.csv"
+# latest_workflow_path = get_latest_workflow(base_path)
 
-# Normalize data
-normalized_data2 = normalize_data(df2)
+# if latest_workflow_path:
+#     # Append Results and SU2 to the latest Workflow path
+#     results_path = os.path.join(latest_workflow_path, "Results", "SU2")
+#     print("Latest Workflow:", latest_workflow_path)
+#     print("Results Path:", results_path)
+# else:
+#     print("No Workflow found in the directory:", base_path)
 
-df_norm2 = normalized_data2["dataset"]["df"]
-X_norm2 = normalized_data2["dataset"]["X_normalized"]
-y_norm2 = normalized_data2["dataset"]["y_normalized"]
-cl_norm2 = y_norm2["CL"]
+# if os.path.isdir(results_path):
+#     data2 = extract_coefficients_from_SU2(results_path)
+#     print(data2)
+#     train_second_kriging_dataset_path = append_to_new_csv(data2, csv_filename2)
+# else:
+#     print(f"Errore: La directory {latest_workflow_path} non esiste.")
 
-# Split test and training
+# print(train_second_kriging_dataset_path)
 
-train_test_values2 = test_training_data(X_norm2, cl_norm2)
 
-X_train2 = train_test_values2["X_train"]
-X_test2 = train_test_values2["X_test"]
-y_train2 = train_test_values2["y_train"]
-y_test2 = train_test_values2["y_test"]
+# # # TRAIN MFKRIGING
+# # train_dataset_path = ""  # aggiungendo questo va quello di default
+# train_second_krigin_path = f"{train_second_kriging_dataset_path}"
+# default_train_second_kriging_dataset_path = (
+#     "/wrk/Gronda/labAR/prove_codice/EULER_dataset_TRAIN_default.csv"
+# )
+# df2 = load_and_split_data(train_second_krigin_path, default_train_second_kriging_dataset_path)
+# print(df2)
 
-# Train module and predict
+# # Normalize data
+# normalized_data2 = normalize_data(df2)
 
-theta2 = [0.01]
-corr2 = "matern32"
-poly2 = "constant"  # linear e quadratic  danno problemi coi dati normalizzati
+# df_norm2 = normalized_data2["dataset"]["df"]
+# X_norm2 = normalized_data2["dataset"]["X_normalized"]
+# y_norm2 = normalized_data2["dataset"]["y_normalized"]
+# cl_norm2 = y_norm2["CL"]
 
-model2 = MF_Kriging(X_train1, y_train1, X_train2, y_train2, theta2, corr2, poly2)
-predictions2 = predict_mf_model(model2, X_test2, y_test2)
+# # Split test and training
 
-y_pred2 = predictions2["y_pred"]
-var2 = predictions2["variance"]
+# train_test_values2 = test_training_data(X_norm2, cl_norm2)
 
-print(f"x train: {X_train2}")
-print(f"x test: {X_test2}")
-print(f"y test: {y_test2}")
-print(f"y pred: {y_pred2}")
-print(f"variance: {var2}")
+# X_train2 = train_test_values2["X_train"]
+# X_test2 = train_test_values2["X_test"]
+# y_train2 = train_test_values2["y_train"]
+# y_test2 = train_test_values2["y_test"]
 
-# EVALUATE HIGH VARIANCE DATA AND SAMPLING
+# # Train module and predict
 
-var_flat2 = var2.flatten()
+# theta2 = [0.01]
+# corr2 = "matern32"
+# poly2 = "constant"  # linear e quadratic  danno problemi coi dati normalizzati
 
-sorted_indices2 = np.argsort(var_flat2)[::-1]
-top_10_indices1 = sorted_indices2[:10]
-top_10_X_test1 = X_test2[top_10_indices1]
+# model2 = MF_Kriging(X_train1, y_train1, X_train2, y_train2, theta2, corr2, poly2)
+# predictions2 = predict_mf_model(model2, X_test2, y_test2)
 
-# Stampa i risultati
-print(f"Top 50 variances: {var_flat2[top_10_indices1]}")
-print(f"Top 50 X_test samples: {top_10_X_test1}")
+# y_pred2 = predictions2["y_pred"]
+# var2 = predictions2["variance"]
 
-scaler_X2 = normalized_data2["scalers"]["scaler_X"]
+# print(f"x train: {X_train2}")
+# print(f"x test: {X_test2}")
+# print(f"y test: {y_test2}")
+# print(f"y pred: {y_pred2}")
+# print(f"variance: {var2}")
 
-X_original2 = scaler_X2.inverse_transform(top_10_X_test1)
-print(f"Original top 50: {X_original2}")
+# # EVALUATE HIGH VARIANCE DATA AND SAMPLING
 
-altitude2 = X_original2[:, 0]
-machNumber2 = X_original2[:, 1]
-angleOfAttack2 = X_original2[:, 2]
-angleOfSideslip2 = X_original2[:, 3]
-print(altitude2)
-print(machNumber2)
-print(angleOfAttack2)
-print(angleOfSideslip2)
+# var_flat2 = var2.flatten()
 
-# dictionary aeromap
-aeromap_columns2 = ["altitude", "machNumber", "angleOfAttack", "angleOfSideslip"]
-aeromap2 = {name: X_original2[:, i] for i, name in enumerate(aeromap_columns2)}
+# sorted_indices2 = np.argsort(var_flat2)[::-1]
+# top_10_indices1 = sorted_indices2[:10]
+# top_10_X_test1 = X_test2[top_10_indices1]
 
-for key, value in aeromap2.items():
-    print(f"{key}: {value}")
+# # Stampa i risultati
+# print(f"Top 50 variances: {var_flat2[top_10_indices1]}")
+# print(f"Top 50 X_test samples: {top_10_X_test1}")
 
-print(aeromap2)
-print(type(aeromap2))
-# miglioramento: aggiungere una funzione di densita per evitare che i putni siano troppo vicini
-# miglioramento: confrontare ad ogni step i modelli kriging x valutare un effettivo miglioramento
+# scaler_X2 = normalized_data2["scalers"]["scaler_X"]
 
-output_filename3 = "RANS2_dataset.csv"
-output_directory3 = "/wrk/Gronda/labAR/prove_codice"
-full_path3 = os.path.join(output_directory3, output_filename3)
+# X_original2 = scaler_X2.inverse_transform(top_10_X_test1)
+# print(f"Original top 50: {X_original2}")
 
-save_to_csv(aeromap2, full_path3)
+# altitude2 = X_original2[:, 0]
+# machNumber2 = X_original2[:, 1]
+# angleOfAttack2 = X_original2[:, 2]
+# angleOfSideslip2 = X_original2[:, 3]
+# print(altitude2)
+# print(machNumber2)
+# print(angleOfAttack2)
+# print(angleOfSideslip2)
+
+# # dictionary aeromap
+# aeromap_columns2 = ["altitude", "machNumber", "angleOfAttack", "angleOfSideslip"]
+# aeromap2 = {name: X_original2[:, i] for i, name in enumerate(aeromap_columns2)}
+
+# for key, value in aeromap2.items():
+#     print(f"{key}: {value}")
+
+# print(aeromap2)
+# print(type(aeromap2))
+# # miglioramento: aggiungere una funzione di densita per evitare che i putni siano troppo vicini
+# # miglioramento: confrontare ad ogni step i modelli kriging x valutare un effettivo miglioramento
+
+# output_filename3 = "RANS2_dataset.csv"
+# output_directory3 = "/wrk/Gronda/labAR/prove_codice"
+# full_path3 = os.path.join(output_directory3, output_filename3)
+
+# save_to_csv(aeromap2, full_path3)
+
+
+def launch_avl_simulations(
+    default_first_kriging_dataset_path, directory_path, input_cpacs_path, full_path1
+):
+
+    first_kriging_dataset_path = None  # Initialize with None
+
+    # LAUNCH AVL COMMAND
+    print("CPACS updated, running PyAVL Module in CEASIOMpy...")
+    command = (
+        f"cd {os.path.abspath(directory_path)} && "
+        f"ceasiompy_run -m {os.path.abspath(input_cpacs_path)} PyAVL"
+    )
+
+    try:
+        # Run the command with subprocess.run()
+        print("PyAVL simulation started. Press Ctrl+C to interrupt manually.")
+        result = subprocess.run(command, shell=True, check=True, text=True, capture_output=True)
+
+        # Check if the process completed successfully
+        if result.returncode == 0:
+            print("Simulations completed successfully!")
+        else:
+            print("An error occurred during the simulations!")
+
+    # Exception to manage "Ctrl+C" command by the developer
+    except subprocess.CalledProcessError as e:
+        print(f"Error occurred during the simulation: {e.stderr}")
+        # Use the default dataset if there was an error
+        first_kriging_dataset_path = default_first_kriging_dataset_path
+        result = None  # Ensure result is defined
+    except KeyboardInterrupt:
+        print("\nSimulation manually interrupted.")
+        # Manually set to default dataset if interrupted
+        first_kriging_dataset_path = default_first_kriging_dataset_path
+        result = None  # Ensure result is defined
+
+    # PROCESS SIMULATION RESULTS OR USE DEFAULT DATASET
+    if result and result.returncode == 0:
+        # If the process completed, analyze the results
+        latest_workflow_path = get_latest_workflow(directory_path)
+        if latest_workflow_path:
+            results_path = os.path.join(latest_workflow_path, "Results", "PyAVL")
+            print("Latest Workflow:", latest_workflow_path)
+            print("Results Path:", results_path)
+
+            if os.path.isdir(results_path):
+                data1 = extract_coefficients_from_AVL(results_path)
+                print("Coefficents got from AVL simulations:")
+                print(data1)
+                first_kriging_dataset_path = append_to_new_csv(data1, full_path1)
+            else:
+                print(f"Error: The directory {results_path} does not exist.")
+        else:
+            print("No workflow found.")
+    else:
+        # Use the default dataset if the process was interrupted
+        print(f"Using the default dataset: {default_first_kriging_dataset_path}")
+        first_kriging_dataset_path = default_first_kriging_dataset_path
+
+    return first_kriging_dataset_path
+
+
+def avl_workflow(
+    input_cpacs_path,
+    directory_path,
+    default_first_kriging_dataset_path,
+    full_path1,
+    samples,
+    aeromap_uid,
+    aeromap_name,
+    avl_parameters,
+):
+
+    print("Do you want to proceed with AVL simulations? [default: NO]")
+    print("If YES: proceed with AVL configuration")
+    print("If NO: insert file.csv to train first kriging")
+    avl_yes_or_not = input(": ") or "NO"
+
+    if avl_yes_or_not.upper() == "YES":
+        print("Updating aeromap and reference value for AVL simulations")
+        input("Press ENTER to continue....")
+
+        # Aeromap updating on CPACS
+        tixi = Tixi3()
+        tixi.open(input_cpacs_path)
+
+        try:
+            # add the new aeroMap
+            add_new_aeromap(tixi, samples, aeromap_uid, aeromap_name)
+            # change_reference_value(tixi, reference_values)
+            # save the updated CPACS file
+            tixi.save(input_cpacs_path)
+            print("New aeroMap added successfully!")
+        except Exception as e:
+            print(f"Error adding aeroMap: {e}")
+        finally:
+            tixi.close()
+
+        # AVL updating on CPACS
+        print("Updating parameters for AVL simulations")
+        input("Press ENTER to continue....")
+
+        tixi = Tixi3()
+        tixi.open(input_cpacs_path)
+
+        try:
+            # avl update
+            avl_update(tixi, aeromap_name, avl_parameters)
+            # save the updated CPACS file
+            tixi.save(input_cpacs_path)
+            print("AVL parameters updated successfully!")
+        except Exception as e:
+            print(f"Error updating parameters: {e}")
+        finally:
+            tixi.close()
+
+        input("Press ENTER to continue....")
+
+        # Launch AVL command
+        print("CPACS updated, running PyAVL Module in CEASIOMpy...")
+        command = (
+            f"cd {os.path.abspath(directory_path)} && "
+            f"ceasiompy_run -m {os.path.abspath(input_cpacs_path)} PyAVL"
+        )
+
+        # Obtain path of train dataset
+        first_kriging_dataset_path = launch_avl_simulations(
+            default_first_kriging_dataset_path, directory_path, input_cpacs_path, full_path1
+        )
+
+    else:
+
+        first_kriging_dataset_path = input("Insert file.csv path: ")
+
+        if not first_kriging_dataset_path:  # Use default path if no path is provided
+            print(f"No path given. Using default path: {default_first_kriging_dataset_path}")
+            first_kriging_dataset_path = default_first_kriging_dataset_path
+
+    return first_kriging_dataset_path
+
+
+def sm_workflow(
+    kriging_dataset_path,
+    directory_path,
+    theta,
+    corr,
+    poly,
+    selected_mach,
+    altitude,
+    aos,
+    n_samples,
+    fidelity_level,
+    fraction_of_new_samples=None,
+    ranges=None,
+    processed_samples=None,
+    coefficent_to_predict=None,
+    X_train_LF=None,
+    y_train_LF=None,
+    X_train_MF=None,
+    y_train_MF=None,
+    base_model_name=None,
+    model_extension=None,
+):
+    """
+    Workflow for training surrogate models with support for multiple fidelity levels.
+
+    Parameters:
+    - fidelity_level: int (1, 2, 3) - The number of fidelity levels the model should have.
+    """
+
+    # Validate input
+    if not isinstance(fidelity_level, int) or fidelity_level not in [1, 2, 3]:
+        raise ValueError("fidelity_level must be an integer (1, 2, or 3).")
+
+    # Load and prepare the dataset (only for LF)
+    df = load_and_split_data(kriging_dataset_path)
+    X = df["dataset"]["X"]
+    y = df["dataset"]["y"]
+
+    # Select coefficient to predict
+    if coefficent_to_predict is None:
+        which_coefficent = (
+            input("Insert which coefficient to predict (CL, CD, CM) [default: CL]: ") or "CL"
+        )
+    else:
+        which_coefficent = coefficent_to_predict
+
+    if which_coefficent not in y:
+        raise KeyError(
+            f"The specified coefficient '{which_coefficent}' is not available in the dataset."
+        )
+
+    coefficent = y[which_coefficent]
+
+    # Split data into training and test sets (LF data)
+    train_test_values = test_training_data(X, coefficent)
+    X_train = train_test_values["X_train"]
+    X_test = train_test_values["X_test"]
+    y_train = train_test_values["y_train"]
+    y_test = train_test_values["y_test"]
+
+    print("Data splitted into training and test sets.")
+
+    # Initialize variables for iteration
+    model = None
+    top_n_X_test = None
+
+    # Training based on fidelity_level
+    if fidelity_level == 1:
+        print(f"Training surrogate model...")
+        model = Kriging(X_train, y_train, theta, corr, poly)
+        # Prediction and metrics
+        rms = compute_rms_error(model, X_test, y_test)
+        predictions = predict_model(model, X_test, y_test)
+        y_pred = predictions["y_pred"]
+
+        print(f"RMS Error: {rms}")
+
+        # Plot validation and response surfaces
+        plot_validation(y_test, y_pred, which_coefficent)
+        plot_response_surface(
+            altitude,
+            aos,
+            X_train,
+            y_train,
+            model,
+            which_coefficent,
+            ranges["machNumber"],
+            ranges["angleOfAttack"],
+        )
+        plot_coefficent_alpha_for_mach(X_train, y_train, model, selected_mach, which_coefficent)
+
+        input("Press ENTER to continue: ")
+
+        # Saving of the model
+        print("Saving model...")
+        save_model(model, directory_path, base_model_name, model_extension)
+
+    elif fidelity_level == 2:
+        if X_train_LF is None and y_train_LF is None:
+            # First iteration
+            print(f"Training first surrogate model...")
+            model = Kriging(X_train, y_train, theta, corr, poly)
+            # Prediction and metrics
+            rms = compute_rms_error(model, X_test, y_test)
+            predictions = predict_model(model, X_test, y_test)
+            y_pred = predictions["y_pred"]
+            var = predictions["variance"]
+
+            print(f"RMS Error: {rms}")
+
+            # Plot validation and response surfaces
+            plot_validation(y_test, y_pred, which_coefficent)
+            plot_response_surface(
+                altitude,
+                aos,
+                X_train,
+                y_train,
+                model,
+                which_coefficent,
+                ranges["machNumber"],
+                ranges["angleOfAttack"],
+            )
+            plot_coefficent_alpha_for_mach(
+                X_train, y_train, model, selected_mach, which_coefficent
+            )
+
+            print("Selecting DOE points with highest variance...")
+            var_flat = var.flatten()
+            sorted_indices = np.argsort(var_flat)[::-1]
+            n_new_samples = n_samples // fraction_of_new_samples
+            top_n_indices = sorted_indices[:n_new_samples]
+            top_n_X_test = X_test[top_n_indices]
+
+            # Print results
+            print(f"Top {n_new_samples} variances: {var_flat[top_n_indices]}")
+            print(f"Top {n_new_samples} X_test samples: {top_n_X_test}")
+
+            # Plot DOE highlighting new points
+            plot_doe(
+                processed_samples,
+                ranges,
+                n_samples=n_new_samples,
+                plot_dim1="angleOfAttack",
+                plot_dim2="machNumber",
+                highlight_points=top_n_X_test,
+            )
+
+        else:
+            # Second iteration
+            print("Training final multi fidelity surrogate model...")
+            model = MF_Kriging(X_train_LF, y_train_LF, X_train, y_train, theta, corr, poly)
+            # Prediction and metrics
+            rms = compute_rms_error(model, X_test, y_test)
+            predictions = predict_model(model, X_test, y_test)
+            y_pred = predictions["y_pred"]
+
+            print(f"RMS Error: {rms}")
+
+            # Plot validation and response surfaces
+            plot_validation(y_test, y_pred, which_coefficent)
+            plot_response_surface(
+                altitude,
+                aos,
+                X_train,
+                y_train,
+                model,
+                which_coefficent,
+                ranges["machNumber"],
+                ranges["angleOfAttack"],
+            )
+            plot_coefficent_alpha_for_mach(
+                X_train, y_train, model, selected_mach, which_coefficent
+            )
+
+            input("Press ENTER to continue: ")
+
+            # Saving of the model
+            print("Saving model...")
+            save_model(model, directory_path, base_model_name, model_extension)
+
+    else:
+        if X_train_LF is None and y_train_LF is None and X_train_MF is None and y_train_MF is None:
+            # First iteration
+            print(f"Training first surrogate model...")
+            model = Kriging(X_train, y_train, theta, corr, poly)
+            # Prediction and metrics
+            rms = compute_rms_error(model, X_test, y_test)
+            predictions = predict_model(model, X_test, y_test)
+            y_pred = predictions["y_pred"]
+            var = predictions["variance"]
+
+            print(f"RMS Error: {rms}")
+
+            # Plot validation and response surfaces
+            plot_validation(y_test, y_pred, which_coefficent)
+            plot_response_surface(
+                altitude,
+                aos,
+                X_train,
+                y_train,
+                model,
+                which_coefficent,
+                ranges["machNumber"],
+                ranges["angleOfAttack"],
+            )
+            plot_coefficent_alpha_for_mach(
+                X_train, y_train, model, selected_mach, which_coefficent
+            )
+
+            print("Selecting DOE points with highest variance...")
+            var_flat = var.flatten()
+            sorted_indices = np.argsort(var_flat)[::-1]
+            n_new_samples = n_samples // fraction_of_new_samples
+            top_n_indices = sorted_indices[:n_new_samples]
+            top_n_X_test = X_test[top_n_indices]
+
+            # Print results
+            print(f"Top {n_new_samples} variances: {var_flat[top_n_indices]}")
+            print(f"Top {n_new_samples} X_test samples: {top_n_X_test}")
+
+            # Plot DOE highlighting new points
+            plot_doe(
+                processed_samples,
+                ranges,
+                n_samples=n_new_samples,
+                plot_dim1="angleOfAttack",
+                plot_dim2="machNumber",
+                highlight_points=top_n_X_test,
+            )
+
+        elif X_train_MF is None and y_train_MF is None:
+            # Second iteration
+            print(f"Training first multy fidelity surrogate model...")
+            model = MF_Kriging(X_train_LF, y_train_LF, X_train, y_train, theta, corr, poly)
+            # Prediction and metrics
+            rms = compute_rms_error(model, X_test, y_test)
+            predictions = predict_model(model, X_test, y_test)
+            y_pred = predictions["y_pred"]
+            var = predictions["variance"]
+
+            print(f"RMS Error: {rms}")
+
+            # Plot validation and response surfaces
+            plot_validation(y_test, y_pred, which_coefficent)
+            plot_response_surface(
+                altitude,
+                aos,
+                X_train,
+                y_train,
+                model,
+                which_coefficent,
+                ranges["machNumber"],
+                ranges["angleOfAttack"],
+            )
+            plot_coefficent_alpha_for_mach(
+                X_train, y_train, model, selected_mach, which_coefficent
+            )
+
+            print("Selecting DOE points with highest variance...")
+            var_flat = var.flatten()
+            sorted_indices = np.argsort(var_flat)[::-1]
+            n_new_samples = (
+                n_samples // fraction_of_new_samples
+            )  # occhio qui ci potrebbe estare un altro parametro :)
+            top_n_indices = sorted_indices[:n_new_samples]
+            top_n_X_test = X_test[top_n_indices]
+
+            # Print results
+            print(f"Top {n_new_samples} variances: {var_flat[top_n_indices]}")
+            print(f"Top {n_new_samples} X_test samples: {top_n_X_test}")
+
+            # Plot DOE highlighting new points
+            plot_doe(
+                processed_samples,
+                ranges,
+                n_samples=n_new_samples,
+                plot_dim1="angleOfAttack",
+                plot_dim2="machNumber",
+                highlight_points=top_n_X_test,
+            )
+
+        else:
+            # Third iteration
+            print("Training final multi fidelity surrogate model...")
+            model = MF_Kriging(
+                X_train_LF, y_train_LF, X_train_MF, y_train_MF, theta, corr, poly, X_train, y_train
+            )
+            # Prediction and metrics
+            rms = compute_rms_error(model, X_test, y_test)
+            predictions = predict_model(model, X_test, y_test)
+            y_pred = predictions["y_pred"]
+
+            print(f"RMS Error: {rms}")
+
+            # Plot validation and response surfaces
+            plot_validation(y_test, y_pred, which_coefficent)
+            plot_response_surface(
+                altitude,
+                aos,
+                X_train,
+                y_train,
+                model,
+                which_coefficent,
+                ranges["machNumber"],
+                ranges["angleOfAttack"],
+            )
+            plot_coefficent_alpha_for_mach(
+                X_train, y_train, model, selected_mach, which_coefficent
+            )
+
+            input("Press ENTER to continue: ")
+
+            # Saving of the model
+            print("Saving model...")
+            save_model(model, directory_path, base_model_name, model_extension)
+
+    return which_coefficent, top_n_X_test, model, rms
