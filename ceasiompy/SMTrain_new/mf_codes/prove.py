@@ -911,27 +911,20 @@ def sm_workflow(
     if fidelity_level == 1:
         print(f"Training surrogate model...")
         model = Kriging(X_train, y_train, theta, corr, poly)
-        # Prediction and metrics
-        rms = compute_rms_error(model, X_test, y_test)
-        predictions = predict_model(model, X_test, y_test)
-        y_pred = predictions["y_pred"]
-
-        print(f"RMS Error: {rms}")
-
-        # Plot validation and response surfaces
-        plot_validation(y_test, y_pred, which_coefficent)
-        plot_response_surface(
+        # Prediction metrics and graphs
+        rms, prediction, y_pred, var = prediction_metrics_plots(
+            model,
+            X_test,
+            y_test,
+            which_coefficent,
             altitude,
             aos,
             X_train,
             y_train,
-            model,
-            which_coefficent,
             ranges["machNumber"],
             ranges["angleOfAttack"],
+            selected_mach,
         )
-        plot_coefficent_alpha_for_mach(X_train, y_train, model, selected_mach, which_coefficent)
-
         input("Press ENTER to continue: ")
 
         # Saving of the model
@@ -943,76 +936,51 @@ def sm_workflow(
             # First iteration
             print(f"Training first surrogate model...")
             model = Kriging(X_train, y_train, theta, corr, poly)
-            # Prediction and metrics
-            rms = compute_rms_error(model, X_test, y_test)
-            predictions = predict_model(model, X_test, y_test)
-            y_pred = predictions["y_pred"]
-            var = predictions["variance"]
-
-            print(f"RMS Error: {rms}")
-
-            # Plot validation and response surfaces
-            plot_validation(y_test, y_pred, which_coefficent)
-            plot_response_surface(
+            # Prediction metrics and graphs
+            rms, prediction, y_pred, var = prediction_metrics_plots(
+                model,
+                X_test,
+                y_test,
+                which_coefficent,
                 altitude,
                 aos,
                 X_train,
                 y_train,
-                model,
-                which_coefficent,
                 ranges["machNumber"],
                 ranges["angleOfAttack"],
-            )
-            plot_coefficent_alpha_for_mach(
-                X_train, y_train, model, selected_mach, which_coefficent
+                selected_mach,
             )
 
-            print("Selecting DOE points with highest variance...")
-            var_flat = var.flatten()
-            sorted_indices = np.argsort(var_flat)[::-1]
-            n_new_samples = n_samples // fraction_of_new_samples
-            top_n_indices = sorted_indices[:n_new_samples]
-            top_n_X_test = X_test[top_n_indices]
+            output_filename = "EULER_dataset.csv"
 
-            # Print results
-            print(f"Top {n_new_samples} variances: {var_flat[top_n_indices]}")
-            print(f"Top {n_new_samples} X_test samples: {top_n_X_test}")
-
-            # Plot DOE highlighting new points
-            plot_doe(
+            new_aeromap, full_path = high_variance_new_doe(
+                var,
+                n_samples,
+                fraction_of_new_samples,
+                X_test,
                 processed_samples,
                 ranges,
-                n_samples=n_new_samples,
-                plot_dim1="angleOfAttack",
-                plot_dim2="machNumber",
-                highlight_points=top_n_X_test,
+                output_filename,
+                directory_path,
             )
 
         else:
             # Second iteration
             print("Training final multi fidelity surrogate model...")
             model = MF_Kriging(X_train_LF, y_train_LF, X_train, y_train, theta, corr, poly)
-            # Prediction and metrics
-            rms = compute_rms_error(model, X_test, y_test)
-            predictions = predict_model(model, X_test, y_test)
-            y_pred = predictions["y_pred"]
-
-            print(f"RMS Error: {rms}")
-
-            # Plot validation and response surfaces
-            plot_validation(y_test, y_pred, which_coefficent)
-            plot_response_surface(
+            # Prediction metrics and graphs
+            rms, prediction, y_pred, var = prediction_metrics_plots(
+                model,
+                X_test,
+                y_test,
+                which_coefficent,
                 altitude,
                 aos,
                 X_train,
                 y_train,
-                model,
-                which_coefficent,
                 ranges["machNumber"],
                 ranges["angleOfAttack"],
-            )
-            plot_coefficent_alpha_for_mach(
-                X_train, y_train, model, selected_mach, which_coefficent
+                selected_mach,
             )
 
             input("Press ENTER to continue: ")
@@ -1026,100 +994,65 @@ def sm_workflow(
             # First iteration
             print(f"Training first surrogate model...")
             model = Kriging(X_train, y_train, theta, corr, poly)
-            # Prediction and metrics
-            rms = compute_rms_error(model, X_test, y_test)
-            predictions = predict_model(model, X_test, y_test)
-            y_pred = predictions["y_pred"]
-            var = predictions["variance"]
-
-            print(f"RMS Error: {rms}")
-
-            # Plot validation and response surfaces
-            plot_validation(y_test, y_pred, which_coefficent)
-            plot_response_surface(
+            # Prediction metrics and graphs
+            rms, prediction, y_pred, var = prediction_metrics_plots(
+                model,
+                X_test,
+                y_test,
+                which_coefficent,
                 altitude,
                 aos,
                 X_train,
                 y_train,
-                model,
-                which_coefficent,
                 ranges["machNumber"],
                 ranges["angleOfAttack"],
-            )
-            plot_coefficent_alpha_for_mach(
-                X_train, y_train, model, selected_mach, which_coefficent
+                selected_mach,
             )
 
-            print("Selecting DOE points with highest variance...")
-            var_flat = var.flatten()
-            sorted_indices = np.argsort(var_flat)[::-1]
-            n_new_samples = n_samples // fraction_of_new_samples
-            top_n_indices = sorted_indices[:n_new_samples]
-            top_n_X_test = X_test[top_n_indices]
+            output_filename = "EULER_dataset.csv"
 
-            # Print results
-            print(f"Top {n_new_samples} variances: {var_flat[top_n_indices]}")
-            print(f"Top {n_new_samples} X_test samples: {top_n_X_test}")
-
-            # Plot DOE highlighting new points
-            plot_doe(
+            new_aeromap, full_path = high_variance_new_doe(
+                var,
+                n_samples,
+                fraction_of_new_samples,
+                X_test,
                 processed_samples,
                 ranges,
-                n_samples=n_new_samples,
-                plot_dim1="angleOfAttack",
-                plot_dim2="machNumber",
-                highlight_points=top_n_X_test,
+                output_filename,
+                directory_path,
             )
 
         elif X_train_MF is None and y_train_MF is None:
             # Second iteration
             print(f"Training first multy fidelity surrogate model...")
             model = MF_Kriging(X_train_LF, y_train_LF, X_train, y_train, theta, corr, poly)
-            # Prediction and metrics
-            rms = compute_rms_error(model, X_test, y_test)
-            predictions = predict_model(model, X_test, y_test)
-            y_pred = predictions["y_pred"]
-            var = predictions["variance"]
-
-            print(f"RMS Error: {rms}")
-
-            # Plot validation and response surfaces
-            plot_validation(y_test, y_pred, which_coefficent)
-            plot_response_surface(
+            # Prediction metrics and graphs
+            rms, prediction, y_pred, var = prediction_metrics_plots(
+                model,
+                X_test,
+                y_test,
+                which_coefficent,
                 altitude,
                 aos,
                 X_train,
                 y_train,
-                model,
-                which_coefficent,
                 ranges["machNumber"],
                 ranges["angleOfAttack"],
-            )
-            plot_coefficent_alpha_for_mach(
-                X_train, y_train, model, selected_mach, which_coefficent
+                selected_mach,
             )
 
-            print("Selecting DOE points with highest variance...")
-            var_flat = var.flatten()
-            sorted_indices = np.argsort(var_flat)[::-1]
-            n_new_samples = (
-                n_samples // fraction_of_new_samples
-            )  # occhio qui ci potrebbe estare un altro parametro :)
-            top_n_indices = sorted_indices[:n_new_samples]
-            top_n_X_test = X_test[top_n_indices]
+            output_filename = "RANS_dataset.csv"
 
-            # Print results
-            print(f"Top {n_new_samples} variances: {var_flat[top_n_indices]}")
-            print(f"Top {n_new_samples} X_test samples: {top_n_X_test}")
-
-            # Plot DOE highlighting new points
-            plot_doe(
+            # Fraction for RANS should be different
+            new_aeromap, full_path = high_variance_new_doe(
+                var,
+                n_samples,
+                fraction_of_new_samples,
+                X_test,
                 processed_samples,
                 ranges,
-                n_samples=n_new_samples,
-                plot_dim1="angleOfAttack",
-                plot_dim2="machNumber",
-                highlight_points=top_n_X_test,
+                output_filename,
+                directory_path,
             )
 
         else:
@@ -1128,33 +1061,99 @@ def sm_workflow(
             model = MF_Kriging(
                 X_train_LF, y_train_LF, X_train_MF, y_train_MF, theta, corr, poly, X_train, y_train
             )
-            # Prediction and metrics
-            rms = compute_rms_error(model, X_test, y_test)
-            predictions = predict_model(model, X_test, y_test)
-            y_pred = predictions["y_pred"]
-
-            print(f"RMS Error: {rms}")
-
-            # Plot validation and response surfaces
-            plot_validation(y_test, y_pred, which_coefficent)
-            plot_response_surface(
+            # Prediction metrics and graphs
+            rms, prediction, y_pred, var = prediction_metrics_plots(
+                model,
+                X_test,
+                y_test,
+                which_coefficent,
                 altitude,
                 aos,
                 X_train,
                 y_train,
-                model,
-                which_coefficent,
                 ranges["machNumber"],
                 ranges["angleOfAttack"],
-            )
-            plot_coefficent_alpha_for_mach(
-                X_train, y_train, model, selected_mach, which_coefficent
+                selected_mach,
             )
 
             input("Press ENTER to continue: ")
-
             # Saving of the model
             print("Saving model...")
             save_model(model, directory_path, base_model_name, model_extension)
 
-    return which_coefficent, top_n_X_test, model, rms
+    return new_aeromap, full_path, which_coefficent, top_n_X_test, model, rms, X_train, y_train
+
+
+def prediction_metrics_plots(
+    model,
+    X_test,
+    y_test,
+    which_coefficent,
+    altitude,
+    aos,
+    X_train,
+    y_train,
+    mach,
+    aoa,
+    selected_mach,
+):
+
+    # Prediction and metrics
+    rms = compute_rms_error(model, X_test, y_test)
+    predictions = predict_model(model, X_test, y_test)
+    y_pred = predictions["y_pred"]
+    var = predictions["variance"]
+
+    print(f"RMS Error: {rms}")
+
+    # Plot validation and response surfaces
+    plot_validation(y_test, y_pred, which_coefficent)
+    plot_response_surface(altitude, aos, X_train, y_train, model, which_coefficent, mach, aoa)
+    plot_coefficent_alpha_for_mach(X_train, y_train, model, selected_mach, which_coefficent)
+
+    return rms, predictions, y_pred, var
+
+
+def high_variance_new_doe(
+    var,
+    n_samples,
+    fraction_of_new_samples,
+    X_test,
+    processed_samples,
+    ranges,
+    output_filename,
+    directory_path,
+):
+
+    print("Selecting DOE points with highest variance...")
+    var_flat = var.flatten()
+    sorted_indices = np.argsort(var_flat)[::-1]
+    n_new_samples = n_samples // fraction_of_new_samples
+    top_n_indices = sorted_indices[:n_new_samples]
+    top_n_X_test = X_test[top_n_indices]
+
+    # Print results
+    print(f"Top {n_new_samples} variances: {var_flat[top_n_indices]}")
+    print(f"Top {n_new_samples} X_test samples: {top_n_X_test}")
+
+    # Plot DOE highlighting new points
+    plot_doe(
+        processed_samples,
+        ranges,
+        n_samples=n_new_samples,
+        plot_dim1="angleOfAttack",
+        plot_dim2="machNumber",
+        highlight_points=top_n_X_test,
+    )
+
+    input("Press ENTER to continue: ")
+
+    new_aeromap = {key: top_n_X_test[:, idx] for idx, key in enumerate(ranges.keys())}
+
+    for key, value in new_aeromap.items():
+        print(f"{key}: {value}")
+
+    full_path = os.path.join(directory_path, output_filename)
+    save_to_csv(new_aeromap, full_path)
+
+    return new_aeromap, full_path
