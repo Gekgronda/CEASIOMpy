@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import sys
 import subprocess
 from tixi3.tixi3wrapper import Tixi3
 from MFSM_Func import (
@@ -31,13 +32,7 @@ from MFSM_Func import (
     plot_response_surface,
     save_model,
 )
-from CPACS_Func import (
-    add_new_aeromap,
-    avl_update,
-    change_reference_value,
-    euler_update,
-    rans_update,
-)
+from CPACS_Func import add_new_aeromap, avl_update, change_reference_value, SU2_update
 from sklearn.preprocessing import MinMaxScaler
 from smt.utils.misc import compute_rms_error
 import pandas as pd
@@ -602,30 +597,30 @@ from ceasiompy.utils.commonxpath import (
 #     print("No Workflow found in the directory:", base_path)
 
 # if os.path.isdir(results_path):
-#     data2 = extract_coefficients_from_SU2(results_path)
-#     print(data2)
-#     train_second_kriging_dataset_path = append_to_new_csv(data2, csv_filename2)
+#     data = extract_coefficients_from_SU2(results_path)
+#     print(data)
+#     kriging_dataset_path = append_to_new_csv(data, csv_filename2)
 # else:
 #     print(f"Errore: La directory {latest_workflow_path} non esiste.")
 
-# print(train_second_kriging_dataset_path)
+# print(kriging_dataset_path)
 
 
 # # # TRAIN MFKRIGING
 # # train_dataset_path = ""  # aggiungendo questo va quello di default
-# train_second_krigin_path = f"{train_second_kriging_dataset_path}"
-# default_train_second_kriging_dataset_path = (
+# train_second_krigin_path = f"{kriging_dataset_path}"
+# default_train_kriging_dataset_path = (
 #     "/wrk/Gronda/labAR/prove_codice/EULER_dataset_TRAIN_default.csv"
 # )
-# df2 = load_and_split_data(train_second_krigin_path, default_train_second_kriging_dataset_path)
+# df2 = load_and_split_data(train_second_krigin_path, default_train_kriging_dataset_path)
 # print(df2)
 
 # # Normalize data
-# normalized_data2 = normalize_data(df2)
+# normalized_data = normalize_data(df2)
 
-# df_norm2 = normalized_data2["dataset"]["df"]
-# X_norm2 = normalized_data2["dataset"]["X_normalized"]
-# y_norm2 = normalized_data2["dataset"]["y_normalized"]
+# df_norm2 = normalized_data["dataset"]["df"]
+# X_norm2 = normalized_data["dataset"]["X_normalized"]
+# y_norm2 = normalized_data["dataset"]["y_normalized"]
 # cl_norm2 = y_norm2["CL"]
 
 # # Split test and training
@@ -667,7 +662,7 @@ from ceasiompy.utils.commonxpath import (
 # print(f"Top 50 variances: {var_flat2[top_10_indices1]}")
 # print(f"Top 50 X_test samples: {top_10_X_test1}")
 
-# scaler_X2 = normalized_data2["scalers"]["scaler_X"]
+# scaler_X2 = normalized_data["scalers"]["scaler_X"]
 
 # X_original2 = scaler_X2.inverse_transform(top_10_X_test1)
 # print(f"Original top 50: {X_original2}")
@@ -716,17 +711,22 @@ def launch_avl_simulations(
     try:
         # Run the command with subprocess.run()
         print("PyAVL simulation started. Press Ctrl+C to interrupt manually.")
-        result = subprocess.run(command, shell=True, check=True, text=True, capture_output=True)
+        result = subprocess.run(
+            command,
+            shell=True,
+            check=True,
+            text=True,
+            stdout=sys.stdout,  # Forward standard output to the terminal
+            stderr=sys.stderr,  # Forward standard error to the terminal
+        )
 
         # Check if the process completed successfully
         if result.returncode == 0:
             print("Simulations completed successfully!")
         else:
             print("An error occurred during the simulations!")
-
-    # Exception to manage "Ctrl+C" command by the developer
     except subprocess.CalledProcessError as e:
-        print(f"Error occurred during the simulation: {e.stderr}")
+        print(f"Error occurred during the simulation: {e}")
         # Use the default dataset if there was an error
         first_kriging_dataset_path = default_first_kriging_dataset_path
         result = None  # Ensure result is defined
@@ -817,13 +817,6 @@ def avl_workflow(
             tixi.close()
 
         input("Press ENTER to continue....")
-
-        # Launch AVL command
-        print("CPACS updated, running PyAVL Module in CEASIOMpy...")
-        command = (
-            f"cd {os.path.abspath(directory_path)} && "
-            f"ceasiompy_run -m {os.path.abspath(input_cpacs_path)} PyAVL"
-        )
 
         # Obtain path of train dataset
         first_kriging_dataset_path = launch_avl_simulations(
@@ -1157,3 +1150,143 @@ def high_variance_new_doe(
     save_to_csv(new_aeromap, full_path)
 
     return new_aeromap, full_path
+
+
+def launch_SU2_simulations(
+    default_kriging_dataset_path, directory_path, input_cpacs_path, full_path
+):
+
+    kriging_dataset_path = None  # Initialize with None
+
+    # Launch SU2
+    print("CPACS updated, running GMSH and SU2 Module in CEASIOMpy...")
+    command = (
+        f"cd {os.path.abspath(directory_path)} && "
+        f"ceasiompy_run -m {os.path.abspath(input_cpacs_path)} CPACS2GMSH SU2Run"
+    )
+
+    try:
+        print("Simulations started. Press Ctrl+C to interrupt manually.")
+        # Run the command with subprocess.run()
+        result = subprocess.run(
+            command,
+            shell=True,
+            check=True,
+            text=True,
+            stdout=sys.stdout,  # Forward standard output to the terminal
+            stderr=sys.stderr,  # Forward standard error to the terminal
+        )
+
+        # Check if the process completed successfully
+        if result.returncode == 0:
+            print("Simulations completed successfully!")
+        else:
+            print("An error occurred during the simulations!")
+    except subprocess.CalledProcessError as e:
+        print(f"Error occurred during the simulation: {e}")
+        # Use the default dataset if there was an error
+        kriging_dataset_path = default_kriging_dataset_path
+        result = None  # Ensure result is defined
+    except KeyboardInterrupt:
+        print("\nSimulation manually interrupted.")
+        # Manually set to default dataset if interrupted
+        kriging_dataset_path = default_kriging_dataset_path
+        result = None  # Ensure result is defined
+
+    # PROCESS SIMULATION RESULTS OR USE DEFAULT DATASET
+    if result and result.returncode == 0:
+        # If the process completed, analyze the results
+        latest_workflow_path = get_latest_workflow(directory_path)
+        if latest_workflow_path:
+            results_path = os.path.join(latest_workflow_path, "Results", "SU2")
+            print("Latest Workflow:", latest_workflow_path)
+            print("Results Path:", results_path)
+
+            if os.path.isdir(results_path):
+                data = extract_coefficients_from_SU2(results_path)
+                print(data)
+                kriging_dataset_path = append_to_new_csv(data, full_path)
+            else:
+                print(f"Error: The directory {results_path} does not exist.")
+        else:
+            print("No workflow found.")
+    else:
+        # Use the default dataset if the process was interrupted
+        print(f"Using the default Euler dataset: {default_kriging_dataset_path}")
+        kriging_dataset_path = default_kriging_dataset_path
+
+    return kriging_dataset_path
+
+
+def su2_workflow(
+    input_cpacs_path,
+    directory_path,
+    default_kriging_dataset_path,
+    full_path,
+    aeromap,
+    aeromap_uid,
+    aeromap_name,
+    common_mesh_params,
+    su2_mesh_params,
+    su2_params,
+    gmsh_options=None,
+):
+
+    print("Do you want to proceed with SU2 simulations? [default: NO]")
+    print("If YES: proceed with SU2 configuration")
+    print("If NO: insert file.csv to train Multi-Fidelity Kriging")
+    su2_yes_or_not = input(": ") or "NO"
+
+    if su2_yes_or_not.upper() == "YES":
+        print("Updating aeromap and reference value for SU2 simulations")
+        input("Press ENTER to continue....")
+
+        # Aeromap updating on CPACS
+        tixi = Tixi3()
+        tixi.open(input_cpacs_path)
+
+        try:
+            # add the new aeroMa
+            add_new_aeromap(tixi, aeromap, aeromap_uid, aeromap_name)
+            # save the updated CPACS file
+            tixi.save(input_cpacs_path)
+            print("New aeroMap added successfully!")
+        except Exception as e:
+            print(f"Error adding aeroMap: {e}")
+        finally:
+            tixi.close()
+
+        # SU2 updating on CPACS
+        print("Updating parameters for SU2 simulations")
+        input("Press ENTER to continue....")
+
+        tixi = Tixi3()
+        tixi.open(input_cpacs_path)
+
+        try:
+            # Euler update
+            SU2_update(tixi, aeromap_name, common_mesh_params, su2_mesh_params, su2_params)
+            # save the updated CPACS file
+            tixi.save(input_cpacs_path)
+            print("SU2 parameters updated successfully!")
+        except Exception as e:
+            print(f"Error updating parameters: {e}")
+        finally:
+            tixi.close()
+
+        input("Press ENTER to continue....")
+
+        # Obtain path of train dataset
+        kriging_dataset_path = launch_SU2_simulations(
+            default_kriging_dataset_path, directory_path, input_cpacs_path, full_path
+        )
+
+    else:
+
+        kriging_dataset_path = input("Insert file.csv path: ")
+
+        if not kriging_dataset_path:  # Use default path if no path is provided
+            print(f"No path given. Using default path: {default_kriging_dataset_path}")
+            kriging_dataset_path = default_kriging_dataset_path
+
+    return kriging_dataset_path

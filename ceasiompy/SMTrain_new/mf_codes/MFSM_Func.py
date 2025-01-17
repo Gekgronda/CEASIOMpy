@@ -4,6 +4,7 @@ import os
 import shutil
 import csv
 import re
+import sys
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import matplotlib.patches as patches
@@ -26,8 +27,7 @@ from CPACS_Func import (
     add_new_aeromap,
     avl_update,
     change_reference_value,
-    euler_update,
-    rans_update,
+    SU2_update,
 )
 
 
@@ -273,7 +273,7 @@ def save_to_csv(samples, filename):
     print(f"File saved to: {filename}")
 
 
-def doe_workflow(default_doe_path, directory_path):
+def doe_workflow(default_doe_path, directory_path, output_filename):
     """
     Workflow to handle Design of Experiment (DoE).
 
@@ -298,10 +298,9 @@ def doe_workflow(default_doe_path, directory_path):
         samples, processed_samples = lh_sampling(ranges, n_samples)
 
         # Save DoE to CSV
-        output_filename1 = "LHS_dataset.csv"
-        full_path1 = os.path.join(directory_path, output_filename1)
-        save_to_csv(samples, full_path1)
-        print(f"New DoE saved in {full_path1}")
+        full_path = os.path.join(directory_path, output_filename)
+        save_to_csv(samples, full_path)
+        print(f"New DoE saved in {full_path}")
 
     # AGGIUNGERE VERIFICHE
 
@@ -322,7 +321,7 @@ def doe_workflow(default_doe_path, directory_path):
             ranges = {col: [df[col].min(), df[col].max()] for col in df.columns}
             processed_samples = df.to_numpy()
             n_samples = len(df)
-            full_path1 = doe_path
+            full_path = doe_path
 
         except Exception as e:
             print(f"Error loading database from {doe_path}: {e}")
@@ -338,14 +337,14 @@ def doe_workflow(default_doe_path, directory_path):
                 ranges = {col: [df[col].min(), df[col].max()] for col in df.columns}
                 processed_samples = df.to_numpy()
                 n_samples = len(df)
-                full_path1 = default_doe_path
+                full_path = default_doe_path
 
             except Exception as e_default:
                 raise FileNotFoundError(f"Failed to load default database: {e_default}")
 
     plot_doe(processed_samples, ranges, n_samples, "angleOfAttack", "machNumber")
 
-    return samples, ranges, processed_samples, n_samples, full_path1
+    return samples, ranges, processed_samples, n_samples, full_path
 
 
 # ============= AVL WORKFLOW  ================
@@ -450,10 +449,10 @@ def append_to_new_csv(data, original_filename):
 
 
 def launch_avl_simulations(
-    default_first_kriging_dataset_path, directory_path, input_cpacs_path, full_path1
+    default_kriging_dataset_path, directory_path, input_cpacs_path, full_path
 ):
 
-    first_kriging_dataset_path = None  # Initialize with None
+    kriging_dataset_path = None  # Initialize with None
 
     # LAUNCH AVL COMMAND
     print("CPACS updated, running PyAVL Module in CEASIOMpy...")
@@ -465,24 +464,29 @@ def launch_avl_simulations(
     try:
         # Run the command with subprocess.run()
         print("PyAVL simulation started. Press Ctrl+C to interrupt manually.")
-        result = subprocess.run(command, shell=True, check=True, text=True, capture_output=True)
+        result = subprocess.run(
+            command,
+            shell=True,
+            check=True,
+            text=True,
+            stdout=sys.stdout,  # Forward standard output to the terminal
+            stderr=sys.stderr,  # Forward standard error to the terminal
+        )
 
         # Check if the process completed successfully
         if result.returncode == 0:
             print("Simulations completed successfully!")
         else:
             print("An error occurred during the simulations!")
-
-    # Exception to manage "Ctrl+C" command by the developer
     except subprocess.CalledProcessError as e:
-        print(f"Error occurred during the simulation: {e.stderr}")
+        print(f"Error occurred during the simulation: {e}")
         # Use the default dataset if there was an error
-        first_kriging_dataset_path = default_first_kriging_dataset_path
+        kriging_dataset_path = default_kriging_dataset_path
         result = None  # Ensure result is defined
     except KeyboardInterrupt:
         print("\nSimulation manually interrupted.")
         # Manually set to default dataset if interrupted
-        first_kriging_dataset_path = default_first_kriging_dataset_path
+        kriging_dataset_path = default_kriging_dataset_path
         result = None  # Ensure result is defined
 
     # PROCESS SIMULATION RESULTS OR USE DEFAULT DATASET
@@ -498,24 +502,24 @@ def launch_avl_simulations(
                 data1 = extract_coefficients_from_AVL(results_path)
                 print("Coefficents got from AVL simulations:")
                 print(data1)
-                first_kriging_dataset_path = append_to_new_csv(data1, full_path1)
+                kriging_dataset_path = append_to_new_csv(data1, full_path)
             else:
                 print(f"Error: The directory {results_path} does not exist.")
         else:
             print("No workflow found.")
     else:
         # Use the default dataset if the process was interrupted
-        print(f"Using the default dataset: {default_first_kriging_dataset_path}")
-        first_kriging_dataset_path = default_first_kriging_dataset_path
+        print(f"Using the default dataset: {default_kriging_dataset_path}")
+        kriging_dataset_path = default_kriging_dataset_path
 
-    return first_kriging_dataset_path
+    return kriging_dataset_path
 
 
 def avl_workflow(
     input_cpacs_path,
     directory_path,
-    default_first_kriging_dataset_path,
-    full_path1,
+    default_kriging_dataset_path,
+    full_path,
     samples,
     aeromap_uid,
     aeromap_name,
@@ -567,27 +571,20 @@ def avl_workflow(
 
         input("Press ENTER to continue....")
 
-        # Launch AVL command
-        print("CPACS updated, running PyAVL Module in CEASIOMpy...")
-        command = (
-            f"cd {os.path.abspath(directory_path)} && "
-            f"ceasiompy_run -m {os.path.abspath(input_cpacs_path)} PyAVL"
-        )
-
         # Obtain path of train dataset
-        first_kriging_dataset_path = launch_avl_simulations(
-            default_first_kriging_dataset_path, directory_path, input_cpacs_path, full_path1
+        kriging_dataset_path = launch_avl_simulations(
+            default_kriging_dataset_path, directory_path, input_cpacs_path, full_path
         )
 
     else:
 
-        first_kriging_dataset_path = input("Insert file.csv path: ")
+        kriging_dataset_path = input("Insert file.csv path: ")
 
-        if not first_kriging_dataset_path:  # Use default path if no path is provided
-            print(f"No path given. Using default path: {default_first_kriging_dataset_path}")
-            first_kriging_dataset_path = default_first_kriging_dataset_path
+        if not kriging_dataset_path:  # Use default path if no path is provided
+            print(f"No path given. Using default path: {default_kriging_dataset_path}")
+            kriging_dataset_path = default_kriging_dataset_path
 
-    return first_kriging_dataset_path
+    return kriging_dataset_path
 
 
 # ============== non in ordine: COLLECT DATA FROM SU2 ========
@@ -952,6 +949,321 @@ def plot_results(y_hf_test, hf_pred, label):
     plt.ylabel(f"Predicted {label}")
     plt.grid()
     plt.show()
+
+
+def prediction_metrics_plots(
+    model,
+    X_test,
+    y_test,
+    which_coefficent,
+    altitude,
+    aos,
+    X_train,
+    y_train,
+    mach,
+    aoa,
+    selected_mach,
+):
+
+    # Prediction and metrics
+    rms = compute_rms_error(model, X_test, y_test)
+    predictions = predict_model(model, X_test, y_test)
+    y_pred = predictions["y_pred"]
+    var = predictions["variance"]
+
+    print(f"RMS Error: {rms}")
+
+    # Plot validation and response surfaces
+    plot_validation(y_test, y_pred, which_coefficent)
+    plot_response_surface(altitude, aos, X_train, y_train, model, which_coefficent, mach, aoa)
+    plot_coefficent_alpha_for_mach(X_train, y_train, model, selected_mach, which_coefficent)
+
+    return rms, predictions, y_pred, var
+
+
+def high_variance_new_doe(
+    var,
+    n_samples,
+    fraction_of_new_samples,
+    X_test,
+    processed_samples,
+    ranges,
+    output_filename,
+    directory_path,
+):
+
+    print("Selecting DOE points with highest variance...")
+    var_flat = var.flatten()
+    sorted_indices = np.argsort(var_flat)[::-1]
+    n_new_samples = n_samples // fraction_of_new_samples
+    top_n_indices = sorted_indices[:n_new_samples]
+    top_n_X_test = X_test[top_n_indices]
+
+    # Print results
+    print(f"Top {n_new_samples} variances: {var_flat[top_n_indices]}")
+    print(f"Top {n_new_samples} X_test samples: {top_n_X_test}")
+
+    # Plot DOE highlighting new points
+    plot_doe(
+        processed_samples,
+        ranges,
+        n_samples=n_new_samples,
+        plot_dim1="angleOfAttack",
+        plot_dim2="machNumber",
+        highlight_points=top_n_X_test,
+    )
+
+    input("Press ENTER to continue: ")
+
+    new_aeromap = {key: top_n_X_test[:, idx] for idx, key in enumerate(ranges.keys())}
+
+    print("New aeromap with high variance points:")
+
+    for key, value in new_aeromap.items():
+        print(f"{key}: {value}")
+
+    full_path = os.path.join(directory_path, output_filename)
+    save_to_csv(new_aeromap, full_path)
+
+    return new_aeromap, full_path
+
+
+def sm_workflow(
+    kriging_dataset_path,
+    directory_path,
+    output_filename,
+    theta,
+    corr,
+    poly,
+    selected_mach,
+    altitude,
+    aos,
+    n_samples,
+    fidelity_level,
+    fraction_of_new_samples=None,
+    ranges=None,
+    processed_samples=None,
+    coefficent_to_predict=None,
+    X_train_LF=None,
+    y_train_LF=None,
+    X_train_MF=None,
+    y_train_MF=None,
+    base_model_name=None,
+    model_extension=None,
+):
+    """
+    Workflow for training surrogate models with support for multiple fidelity levels.
+
+    Parameters:
+    - fidelity_level: int (1, 2, 3) - The number of fidelity levels the model should have.
+    """
+
+    # Validate input
+    if not isinstance(fidelity_level, int) or fidelity_level not in [1, 2, 3]:
+        raise ValueError("fidelity_level must be an integer (1, 2, or 3).")
+
+    # Load and prepare the dataset (only for LF)
+    df = load_and_split_data(kriging_dataset_path)
+    X = df["dataset"]["X"]
+    y = df["dataset"]["y"]
+
+    # Select coefficient to predict
+    if coefficent_to_predict is None:
+        which_coefficent = (
+            input("Insert which coefficient to predict (CL, CD, CM) [default: CL]: ") or "CL"
+        )
+    else:
+        which_coefficent = coefficent_to_predict
+
+    if which_coefficent not in y:
+        raise KeyError(
+            f"The specified coefficient '{which_coefficent}' is not available in the dataset."
+        )
+
+    coefficent = y[which_coefficent]
+
+    # Split data into training and test sets (LF data)
+    train_test_values = test_training_data(X, coefficent)
+    X_train = train_test_values["X_train"]
+    X_test = train_test_values["X_test"]
+    y_train = train_test_values["y_train"]
+    y_test = train_test_values["y_test"]
+
+    print("Data splitted into training and test sets.")
+
+    # Initialize variables for iteration
+    model = None
+    top_n_X_test = None
+
+    # Training based on fidelity_level
+    if fidelity_level == 1:
+        print(f"Training surrogate model...")
+        model = Kriging(X_train, y_train, theta, corr, poly)
+        # Prediction metrics and graphs
+        rms, prediction, y_pred, var = prediction_metrics_plots(
+            model,
+            X_test,
+            y_test,
+            which_coefficent,
+            altitude,
+            aos,
+            X_train,
+            y_train,
+            ranges["machNumber"],
+            ranges["angleOfAttack"],
+            selected_mach,
+        )
+        input("Press ENTER to continue: ")
+
+        # Saving of the model
+        print("Saving model...")
+        save_model(model, directory_path, base_model_name, model_extension)
+
+    elif fidelity_level == 2:
+        if X_train_LF is None and y_train_LF is None:
+            # First iteration
+            print(f"Training first surrogate model...")
+            model = Kriging(X_train, y_train, theta, corr, poly)
+            # Prediction metrics and graphs
+            rms, prediction, y_pred, var = prediction_metrics_plots(
+                model,
+                X_test,
+                y_test,
+                which_coefficent,
+                altitude,
+                aos,
+                X_train,
+                y_train,
+                ranges["machNumber"],
+                ranges["angleOfAttack"],
+                selected_mach,
+            )
+
+            new_aeromap, full_path = high_variance_new_doe(
+                var,
+                n_samples,
+                fraction_of_new_samples,
+                X_test,
+                processed_samples,
+                ranges,
+                output_filename,
+                directory_path,
+            )
+
+        else:
+            # Second iteration
+            print("Training final multi fidelity surrogate model...")
+            model = MF_Kriging(X_train_LF, y_train_LF, X_train, y_train, theta, corr, poly)
+            # Prediction metrics and graphs
+            rms, prediction, y_pred, var = prediction_metrics_plots(
+                model,
+                X_test,
+                y_test,
+                which_coefficent,
+                altitude,
+                aos,
+                X_train,
+                y_train,
+                ranges["machNumber"],
+                ranges["angleOfAttack"],
+                selected_mach,
+            )
+
+            input("Press ENTER to continue: ")
+
+            # Saving of the model
+            print("Saving model...")
+            save_model(model, directory_path, base_model_name, model_extension)
+
+    else:
+        if X_train_LF is None and y_train_LF is None and X_train_MF is None and y_train_MF is None:
+            # First iteration
+            print(f"Training first surrogate model...")
+            model = Kriging(X_train, y_train, theta, corr, poly)
+            # Prediction metrics and graphs
+            rms, prediction, y_pred, var = prediction_metrics_plots(
+                model,
+                X_test,
+                y_test,
+                which_coefficent,
+                altitude,
+                aos,
+                X_train,
+                y_train,
+                ranges["machNumber"],
+                ranges["angleOfAttack"],
+                selected_mach,
+            )
+
+            new_aeromap, full_path = high_variance_new_doe(
+                var,
+                n_samples,
+                fraction_of_new_samples,
+                X_test,
+                processed_samples,
+                ranges,
+                output_filename,
+                directory_path,
+            )
+
+        elif X_train_MF is None and y_train_MF is None:
+            # Second iteration
+            print(f"Training first multy fidelity surrogate model...")
+            model = MF_Kriging(X_train_LF, y_train_LF, X_train, y_train, theta, corr, poly)
+            # Prediction metrics and graphs
+            rms, prediction, y_pred, var = prediction_metrics_plots(
+                model,
+                X_test,
+                y_test,
+                which_coefficent,
+                altitude,
+                aos,
+                X_train,
+                y_train,
+                ranges["machNumber"],
+                ranges["angleOfAttack"],
+                selected_mach,
+            )
+
+            # Fraction for RANS should be different
+            new_aeromap, full_path = high_variance_new_doe(
+                var,
+                n_samples,
+                fraction_of_new_samples,
+                X_test,
+                processed_samples,
+                ranges,
+                output_filename,
+                directory_path,
+            )
+
+        else:
+            # Third iteration
+            print("Training final multi fidelity surrogate model...")
+            model = MF_Kriging(
+                X_train_LF, y_train_LF, X_train_MF, y_train_MF, theta, corr, poly, X_train, y_train
+            )
+            # Prediction metrics and graphs
+            rms, prediction, y_pred, var = prediction_metrics_plots(
+                model,
+                X_test,
+                y_test,
+                which_coefficent,
+                altitude,
+                aos,
+                X_train,
+                y_train,
+                ranges["machNumber"],
+                ranges["angleOfAttack"],
+                selected_mach,
+            )
+
+            input("Press ENTER to continue: ")
+            # Saving of the model
+            print("Saving model...")
+            save_model(model, directory_path, base_model_name, model_extension)
+
+    return new_aeromap, full_path, which_coefficent, top_n_X_test, model, rms, X_train, y_train
 
 
 # =================== SAVE MODEL ===============

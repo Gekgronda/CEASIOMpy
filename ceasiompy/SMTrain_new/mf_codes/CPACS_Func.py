@@ -183,7 +183,7 @@ def euler_update(tixi, aeromap_name, common_params, mesh_params, su2_params):
         su2_path = f"{SU2_XPATH}/{key}"
         create_or_update_element(tixi, f"{su2_path}", values)
 
-def rans_update(tixi, aeromap_name, common_params, mesh_params, gmsh_options, su2_params):
+def SU2_update(tixi, aeromap_name, common_params, mesh_params, su2_params, gmsh_options=None):
     """
     Aggiorna o crea i valori nel file CPACS per parametri aerodinamici, della mesh e SU2.
 
@@ -192,8 +192,8 @@ def rans_update(tixi, aeromap_name, common_params, mesh_params, gmsh_options, su
         aeromap_name: 
         common_params(list[dict]):
         mesh_params (list[dict]): Lista di dizionari con path e value per i parametri principali della mesh.
-        gmsh_options (list[dict]):
         su2_params (list[dict]): Lista di dizionari con path e value per i parametri SU2.
+        gmsh_options (list[dict]):
     """
     if not tixi.checkElement(GMSH_XPATH):
         tixi.createElement("/cpacs/toolspecific/CEASIOMpy", "mesh")
@@ -206,13 +206,6 @@ def rans_update(tixi, aeromap_name, common_params, mesh_params, gmsh_options, su
     for key, values in mesh_params.items():
         mesh_path = f"{GMSH_XPATH}/{key}"
         create_or_update_element(tixi, f"{mesh_path}", values)
-    
-    if not tixi.checkElement(MESH_XPATH):
-        tixi.createElement("/cpacs/toolspecific/CEASIOMpy", "mesh")
-        
-    for key, values in gmsh_options.items():
-        gmsh_path = f"{MESH_XPATH}/{key}"
-        create_or_update_element(tixi, f"{gmsh_path}", values)
         
     create_or_update_element(tixi, f"{SU2_AEROMAP_UID_XPATH}", aeromap_name)
 
@@ -223,5 +216,13 @@ def rans_update(tixi, aeromap_name, common_params, mesh_params, gmsh_options, su
     for key, values in su2_params.items():
         su2_path = f"{SU2_XPATH}/{key}"
         create_or_update_element(tixi, f"{su2_path}", values)
+
+    if gmsh_options is not None:
+        if not tixi.checkElement(MESH_XPATH):
+            tixi.createElement("/cpacs/toolspecific/CEASIOMpy", "mesh")
+            
+        for key, values in gmsh_options.items():
+            gmsh_path = f"{MESH_XPATH}/{key}"
+            create_or_update_element(tixi, f"{gmsh_path}", values)
         
     
