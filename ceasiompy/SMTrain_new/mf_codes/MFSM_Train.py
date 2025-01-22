@@ -46,19 +46,18 @@ from smt.utils.misc import compute_rms_error
 # - CONFRONTO DOE CON DOMINIO FISICO
 # - CONTROLLARE REFERENCE VALUES
 # - FRAZIONE PER LE RANS
-# -
+# - AGGIUNGERE CAMPIONI ALTA FEDELTA SUI BORDI
+# - SE SCEGLI CD UNA VOLTA DEVE ESSERLO X SEMPRE
 
 # --------------------------------------------------------
 
 ## CPACS FILE and PATHS
 input_cpacs_name = "D150_simple.xml"
 cpacs_directory = "/home/cfse/Stage_Gronda/CEASIOMpy/test_files/CPACSfiles"
-directory_path = "/wrk/Gronda/validazione"
-default_doe_path = "/wrk/Gronda/validazione/LHS_dataset_default.csv"
-default_first_kriging_dataset_path = "/wrk/Gronda/validazione/LHS_dataset_TRAIN_default.csv"
-default_second_kriging_dataset_path = (
-    "/wrk/Gronda/labAR/prove_codice/EULER_dataset_TRAIN_default.csv"
-)
+directory_path = "/wrk/Gronda/validazione/mengmeng"
+default_doe_path = "/wrk/Gronda/validazione/mengmeng/AVL.csv"
+default_first_kriging_dataset_path = "/wrk/Gronda/validazione/mengmeng/AVL_TRAIN.csv"
+default_second_kriging_dataset_path = "/wrk/Gronda/validazione/mengmeng/EULER_TRAIN.csv"
 # input_cpacs_name = "labARscaled.xml"
 # directory_path = "/wrk/Gronda/labAR/prove_codice"
 # cpacs_directory = "/home/cfse/Stage_Gronda/CEASIOMpy/test_files/CPACSfiles"
@@ -67,6 +66,11 @@ default_second_kriging_dataset_path = (
 
 ## LHS OPTIONS
 output_filename_lhs = "LHS_dataset.csv"
+
+# pysical domain limits
+p1, p2, p3, p4 = [-5, 0.5], [-3, 0.9], [4, 0.9], [15, 0.5]
+
+physical_domain_limits = {"p1": p1, "p2": p2, "p3": p3, "p4": p4}
 
 
 # --------------------------------------------------------
@@ -103,9 +107,9 @@ avl_parameters = {
 ## FIRST KRIGING OPTIONS
 
 theta1 = [0.01]
-corr1 = "matern32"
+corr1 = "squar_exp"
 poly1 = "constant"
-selected_mach = [0.2, 0.5, 0.7]
+selected_mach = [0.5, 0.8, 0.9]
 altitude_for_response_surface = 10000
 aos_for_response_surface = 0
 fraction_of_new_samples = 5
@@ -127,16 +131,19 @@ export_propellers = ["False"]
 type_mesh = ["Euler"]  # type_mesh
 symmetry = ["True"]  # symmetry
 
+# 10 3 6 26 0.23 0.23 2 1 14
+# (8.0, 20.0, 4, 2, 2.0, 1.0, 4)
+
 # Parametri mesh Euleriana
-farfield_factor = [10.0]
-mesh_farfield = [3.0]
-fuselage_factor = [6]
-wing_factor = [26.0]
+farfield_factor = [8.0]
+mesh_farfield = [20.0]
+fuselage_factor = [4]
+wing_factor = [2]
 engines = [0.23]
 propellers = [0.23]
 n_power_factor = [2.0]
 n_power_field = [1.0]
-le_te_layers = [14]
+le_te_layers = [4]
 refine_truncated = ["False"]  # refine_truncated
 auto_refine = ["True"]  # auto_refine
 
@@ -147,7 +154,7 @@ rotation = [1.0]  # rotationRate
 control_surfaces = ["False"]  # calculateControlSurfacesDeflections
 includeActuatorDisk = ["None;None"]
 cpu = [9]  # nbCPU
-iters = [1]  # maxIter
+iters = [1500]  # maxIter
 cfl_adption = ["True"]  # value
 cflAdFactorDown = [0.5]  # factor_down
 cflAdFactorUp = [1.5]  # factor_up
@@ -177,7 +184,7 @@ euler_mesh_params = {
     "mesh_size/propellers": propellers,
     "n_power_factor": n_power_factor,
     "n_power_field": n_power_field,
-    "number_layer": le_te_layers,
+    "refine_factor": le_te_layers,
     "refine_truncated": refine_truncated,
     "auto_refine": auto_refine,
 }
@@ -208,10 +215,10 @@ su2_params = {
 
 ## M-F KRIGING OPTIONS
 
-theta1 = [0.01]
-corr1 = "matern32"
-poly1 = "constant"
-selected_mach = [0.2, 0.5, 0.7]
+theta2 = [0.01]
+corr2 = "squar_exp"
+poly2 = "constant"
+selected_mach = [0.5, 0.8, 0.9]
 altitude_for_response_surface = 10000
 aos_for_response_surface = 0
 fraction_of_new_samples2 = 5
@@ -222,6 +229,8 @@ output_filename_rans = "RANS_dataset.csv"
 
 # --------------------------------------------------------
 
+print("Hai attivato ceasiompy??")
+input("press ENTER to continue")
 
 # ===== 0. CPACS =====
 
@@ -238,7 +247,7 @@ fidelity_level, workflow = choose_fidelity_workflow()
 
 try:
     samples, ranges, processed_samples, n_samples, full_path1 = doe_workflow(
-        default_doe_path, directory_path, output_filename_lhs
+        default_doe_path, directory_path, output_filename_lhs, physical_domain_limits
     )
 
     print("Design of Experiment (DoE) ready:")
@@ -277,25 +286,35 @@ input("Press ENTER to continue....")
 
 # ====== 3. FIRST KRIGING MODEL =====
 
-new_aeromap1, full_path2, which_coefficent1, top_n_X_test1, model1, rms1, X_train1, y_train1 = (
-    sm_workflow(
-        first_kriging_dataset_path,
-        directory_path,
-        output_filename_euler,
-        theta1,
-        corr1,
-        poly1,
-        selected_mach,
-        altitude_for_response_surface,
-        aos_for_response_surface,
-        n_samples,
-        fidelity_level,
-        fraction_of_new_samples,
-        ranges,
-        processed_samples,
-        base_model_name=base_model_name,
-        model_extension=model_extension,
-    )
+(
+    new_aeromap1,
+    full_path2,
+    which_coefficent1,
+    top_n_X_test1,
+    model1,
+    rms1,
+    X1,
+    y1,
+    X_train1,
+    y_train1,
+) = sm_workflow(
+    first_kriging_dataset_path,
+    directory_path,
+    output_filename_euler,
+    theta1,
+    corr1,
+    poly1,
+    selected_mach,
+    altitude_for_response_surface,
+    aos_for_response_surface,
+    n_samples,
+    fidelity_level,
+    physical_domain_limits,
+    fraction_of_new_samples,
+    ranges,
+    processed_samples,
+    base_model_name=base_model_name,
+    model_extension=model_extension,
 )
 
 input("Press ENTER to continue....")
@@ -319,25 +338,37 @@ input("Press ENTER to continue....")
 
 # ====== 5. MF KRIGING ======
 
-new_aeromap2, full_path3, which_coefficent2, top_n_X_test2, model2, rms2, X_train2, y_train2 = (
-    sm_workflow(
-        second_kriging_dataset_path,
-        directory_path,
-        output_filename_rans,
-        theta2,
-        corr2,
-        poly2,
-        selected_mach,
-        altitude_for_response_surface,
-        aos_for_response_surface,
-        n_samples,
-        fidelity_level,
-        fraction_of_new_samples=fraction_of_new_samples2,
-        ranges=ranges,
-        processed_samples=processed_samples,
-        X_train_LF=X_train1,
-        y_train_LF=y_train1,
-        base_model_name=base_model_name,
-        model_extension=model_extension,
-    )
+(
+    new_aeromap2,
+    full_path3,
+    which_coefficent2,
+    top_n_X_test2,
+    model2,
+    rms2,
+    X2,
+    y2,
+    X_train2,
+    y_train2,
+) = sm_workflow(
+    second_kriging_dataset_path,
+    directory_path,
+    output_filename_rans,
+    theta2,
+    corr2,
+    poly2,
+    selected_mach,
+    altitude_for_response_surface,
+    aos_for_response_surface,
+    n_samples,
+    fidelity_level,
+    physical_domain_limits,
+    fraction_of_new_samples=fraction_of_new_samples2,
+    ranges=ranges,
+    processed_samples=processed_samples,
+    X_LF=X1,
+    y_LF=y1,
+    X_train_LF=X_train1,
+    y_train_LF=y_train1,
+    base_model_name=base_model_name,
+    model_extension=model_extension,
 )

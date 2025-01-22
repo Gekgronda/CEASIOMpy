@@ -6,6 +6,7 @@ import csv
 import re
 import sys
 import matplotlib.pyplot as plt
+import matplotlib.tri as tri
 from matplotlib import cm
 import matplotlib.patches as patches
 from sklearn.preprocessing import MinMaxScaler
@@ -45,9 +46,9 @@ def choose_fidelity_workflow():
     while True:
         fidelity_level = (
             input(
-                "Choose how many fidelity levels to train the surrogate model (1, 2, 3) [default: 3]: "
+                "Choose how many fidelity levels to train the surrogate model (1, 2, 3) [default: 2]: "
             )
-            or "3"
+            or "2"
         )
         if fidelity_level in {"1", "2", "3"}:
             fidelity_level = int(fidelity_level)
@@ -88,10 +89,9 @@ def choose_fidelity_workflow():
         while True:
             fidelity_workflow = (
                 input(
-                    "Select two fidelity levels (e.g., 'LF and MF', 'LF and HF', or 'MF and HF'): "
+                    "Select two fidelity levels (e.g., 'LF and MF', 'LF and HF', or 'MF and HF' [default: LF and MF]: "
                 )
-                .strip()
-                .upper()
+                or "LF and MF".strip().upper()
             )
             if fidelity_workflow in {"LF AND MF", "LF AND HF", "MF AND HF"}:
                 break
@@ -195,8 +195,9 @@ def plot_doe(
     processed_samples,
     ranges,
     n_samples,
-    plot_dim1="altitude",
-    plot_dim2="angleOfAttack",
+    physical_domain_limits,
+    plot_dim1="angleOfAttack",
+    plot_dim2="machNumber",
     highlight_points=None,
 ):
 
@@ -238,6 +239,23 @@ def plot_doe(
             linewidth=0.5,
             color="k",
         )
+
+    # plot of pysical domain limits
+
+    p1 = physical_domain_limits["p1"]
+    p2 = physical_domain_limits["p2"]
+
+    x_a = [p1[0], p2[0]]
+    y_a = [p1[1], p2[1]]
+    plt.plot(x_a, y_a, marker="o")
+
+    p3 = physical_domain_limits["p3"]
+    p4 = physical_domain_limits["p4"]
+
+    x_b = [p3[0], p4[0]]
+    y_b = [p3[1], p4[1]]
+    plt.plot(x_b, y_b, marker="o")
+
     ax.set_xlabel(f"Dimension {PLOT1 + 1}: {plot_dim1}")
     ax.set_ylabel(f"Dimension {PLOT2 + 1}: {plot_dim2}")
     ax.legend(["Initial LHS"], bbox_to_anchor=(1.05, 0.6))
@@ -273,7 +291,7 @@ def save_to_csv(samples, filename):
     print(f"File saved to: {filename}")
 
 
-def doe_workflow(default_doe_path, directory_path, output_filename):
+def doe_workflow(default_doe_path, directory_path, output_filename, physical_domain_limits):
     """
     Workflow to handle Design of Experiment (DoE).
 
@@ -342,7 +360,9 @@ def doe_workflow(default_doe_path, directory_path, output_filename):
             except Exception as e_default:
                 raise FileNotFoundError(f"Failed to load default database: {e_default}")
 
-    plot_doe(processed_samples, ranges, n_samples, "angleOfAttack", "machNumber")
+    plot_doe(
+        processed_samples, ranges, n_samples, physical_domain_limits, "angleOfAttack", "machNumber"
+    )
 
     return samples, ranges, processed_samples, n_samples, full_path
 
@@ -810,13 +830,14 @@ def MF_Kriging(Xt_lf, yt_lf, Xt_mf, yt_mf, theta, corr, poly, Xt_hf=None, yt_hf=
     # Create the Kriging model
     model = MFK(theta0=theta, theta_bounds=[1e-06, 100.0], corr=corr, poly=poly, hyper_opt="TNC")
 
-    # Set training values for the fidelity levels
-    model.set_training_values(Xt_lf, yt_lf, name=0)  # Low-fidelity
-
     # Add high-fidelity data if provided
     if Xt_hf is None and yt_hf is None:
+        # Set training values for the fidelity levels
+        model.set_training_values(Xt_lf, yt_lf, name=0)  # Low-fidelity
         model.set_training_values(Xt_mf, yt_mf)  # Mid-fidelity
     else:
+        # Set training values for the fidelity levels
+        model.set_training_values(Xt_lf, yt_lf, name=0)  # Low-fidelity
         model.set_training_values(Xt_mf, yt_mf, name=1)  # Mid-fidelity
         model.set_training_values(Xt_hf, yt_hf)  # High-fidelity without a name
 
@@ -960,9 +981,16 @@ def prediction_metrics_plots(
     aos,
     X_train,
     y_train,
+    X,
+    y,
+    physical_domain_limits,
     mach,
     aoa,
     selected_mach,
+    X_LF=None,
+    y_LF=None,
+    X_MF=None,
+    y_MF=None,
 ):
 
     # Prediction and metrics
@@ -975,8 +1003,36 @@ def prediction_metrics_plots(
 
     # Plot validation and response surfaces
     plot_validation(y_test, y_pred, which_coefficent)
-    plot_response_surface(altitude, aos, X_train, y_train, model, which_coefficent, mach, aoa)
-    plot_coefficent_alpha_for_mach(X_train, y_train, model, selected_mach, which_coefficent)
+    plot_response_surface(
+        altitude,
+        aos,
+        X,
+        y,
+        physical_domain_limits,
+        model,
+        which_coefficent,
+        mach_range=None,
+        aoa_range=None,
+        X_LF=X_LF,
+        y_LF=y_LF,
+        X_MF=X_MF,
+        y_MF=y_MF,
+    )
+    plot_coefficent_alpha_for_mach(
+        altitude,
+        aos,
+        X,
+        y,
+        physical_domain_limits,
+        model,
+        selected_mach,
+        which_coefficent,
+        aoa_range=None,
+        X_LF=X_LF,
+        y_LF=y_LF,
+        X_MF=X_MF,
+        y_MF=y_MF,
+    )
 
     return rms, predictions, y_pred, var
 
@@ -990,6 +1046,7 @@ def high_variance_new_doe(
     ranges,
     output_filename,
     directory_path,
+    physical_domain_limits,
 ):
 
     print("Selecting DOE points with highest variance...")
@@ -1007,7 +1064,8 @@ def high_variance_new_doe(
     plot_doe(
         processed_samples,
         ranges,
-        n_samples=n_new_samples,
+        n_new_samples,
+        physical_domain_limits,
         plot_dim1="angleOfAttack",
         plot_dim2="machNumber",
         highlight_points=top_n_X_test,
@@ -1040,10 +1098,15 @@ def sm_workflow(
     aos,
     n_samples,
     fidelity_level,
+    physical_domain_limits,
     fraction_of_new_samples=None,
     ranges=None,
     processed_samples=None,
     coefficent_to_predict=None,
+    X_LF=None,
+    y_LF=None,
+    X_MF=None,
+    y_MF=None,
     X_train_LF=None,
     y_train_LF=None,
     X_train_MF=None,
@@ -1070,7 +1133,9 @@ def sm_workflow(
     # Select coefficient to predict
     if coefficent_to_predict is None:
         which_coefficent = (
-            input("Insert which coefficient to predict (CL, CD, CM) [default: CL]: ") or "CL"
+            (input("Insert which coefficient to predict (CL, CD, CM) [default: CL]: ") or "CL")
+            .strip()
+            .upper()
         )
     else:
         which_coefficent = coefficent_to_predict
@@ -1091,6 +1156,11 @@ def sm_workflow(
 
     print("Data splitted into training and test sets.")
 
+    print(f"X_train: {X_train}")
+    print(f"y_train: {y_train}")
+    print(f"X_test: {X_test}")
+    print(f"y_test: {y_test}")
+
     # Initialize variables for iteration
     model = None
     top_n_X_test = None
@@ -1109,6 +1179,9 @@ def sm_workflow(
             aos,
             X_train,
             y_train,
+            X,
+            coefficent,  # cambia anche gli altri!!
+            physical_domain_limits,
             ranges["machNumber"],
             ranges["angleOfAttack"],
             selected_mach,
@@ -1134,6 +1207,9 @@ def sm_workflow(
                 aos,
                 X_train,
                 y_train,
+                X,
+                coefficent,  # cambia anche gli altri!!
+                physical_domain_limits,
                 ranges["machNumber"],
                 ranges["angleOfAttack"],
                 selected_mach,
@@ -1148,6 +1224,7 @@ def sm_workflow(
                 ranges,
                 output_filename,
                 directory_path,
+                physical_domain_limits,
             )
 
         else:
@@ -1164,10 +1241,17 @@ def sm_workflow(
                 aos,
                 X_train,
                 y_train,
+                X,
+                coefficent,  # cambia anche gli altri!!
+                physical_domain_limits,
                 ranges["machNumber"],
                 ranges["angleOfAttack"],
                 selected_mach,
+                X_LF,
+                y_LF,
             )
+
+            new_aeromap, full_path = None, None
 
             input("Press ENTER to continue: ")
 
@@ -1190,6 +1274,9 @@ def sm_workflow(
                 aos,
                 X_train,
                 y_train,
+                X,
+                coefficent,  # cambia anche gli altri!!
+                physical_domain_limits,
                 ranges["machNumber"],
                 ranges["angleOfAttack"],
                 selected_mach,
@@ -1220,9 +1307,14 @@ def sm_workflow(
                 aos,
                 X_train,
                 y_train,
+                X,
+                coefficent,  # cambia anche gli altri!!
+                physical_domain_limits,
                 ranges["machNumber"],
                 ranges["angleOfAttack"],
                 selected_mach,
+                X_LF,
+                y_LF,
             )
 
             # Fraction for RANS should be different
@@ -1253,17 +1345,37 @@ def sm_workflow(
                 aos,
                 X_train,
                 y_train,
+                X,
+                coefficent,  # cambia anche gli altri!!
+                physical_domain_limits,
                 ranges["machNumber"],
                 ranges["angleOfAttack"],
                 selected_mach,
+                X_LF,
+                y_LF,
+                X_MF,
+                y_MF,
             )
+
+            new_aeromap, full_path = None, None
 
             input("Press ENTER to continue: ")
             # Saving of the model
             print("Saving model...")
             save_model(model, directory_path, base_model_name, model_extension)
 
-    return new_aeromap, full_path, which_coefficent, top_n_X_test, model, rms, X_train, y_train
+    return (
+        new_aeromap,
+        full_path,
+        which_coefficent,
+        top_n_X_test,
+        model,
+        rms,
+        X,
+        coefficent,
+        X_train,
+        y_train,
+    )
 
 
 # =================== SAVE MODEL ===============
@@ -1304,145 +1416,283 @@ def save_model(model, model_directory, base_model_name, model_extension):
 
 
 def plot_response_surface(
-    altitude, aos, X_train, Y_train, model, coeff, mach_range=None, aoa_range=None
+    altitude,
+    aos,
+    X,
+    y,
+    physical_domain_limits,
+    model,
+    coeff,
+    mach_range=None,
+    aoa_range=None,
+    X_LF=None,
+    y_LF=None,
+    X_MF=None,
+    y_MF=None,
 ):
     """
-    Plot the response surface for a Kriging surrogate model.
+    Plot the response surface for a surrogate model and compare with DoE points.
 
     Args:
         altitude (float): Altitude to generate the response surface at.
-        X_train (np.ndarray): DoE points used for training (Mach, AoA, Altitude).
-        Y_train (np.ndarray): DoE values used for training (Coeff).
+        aos (float): Angle of sideslip (AoS) for the surface.
+        X (np.ndarray): High-fidelity DoE points (Mach, AoA, Altitude).
+        y (np.ndarray): High-fidelity Coefficient values.
         model (object): Trained surrogate model.
-        mach_range (list or None): Range of Mach numbers [min, max] (default: DoE range).
-        aoa_range (list or None): Range of AoA [min, max] (default: DoE range).
+        coeff (str): Coefficient to visualize (e.g., CL, CD, etc.).
+        mach_range (list, optional): Range of Mach numbers [min, max].
+        aoa_range (list, optional): Range of AoA [min, max].
+        X_LF (np.ndarray, optional): Low-fidelity DoE points.
+        y_LF (np.ndarray, optional): Low-fidelity Coefficient values.
+        X_MF (np.ndarray, optional): Medium-fidelity DoE points.
+        y_MF (np.ndarray, optional): Medium-fidelity Coefficient values.
     """
-    # Determine Mach and AoA ranges
-    if mach_range is None:
-        mach_range = [X_train[:, 1].min(), X_train[:, 1].max()]
-    if aoa_range is None:
-        aoa_range = [X_train[:, 2].min(), X_train[:, 2].max()]
 
-    # Create grid for Mach and AoA
-    mach_values = np.linspace(mach_range[0], mach_range[1], 70)
-    aoa_values = np.linspace(aoa_range[0], aoa_range[1], 70)
-    Mach, AoA = np.meshgrid(mach_values, aoa_values)
+    p1 = physical_domain_limits["p1"]
+    p2 = physical_domain_limits["p2"]
+    p3 = physical_domain_limits["p3"]
+    p4 = physical_domain_limits["p4"]
 
-    # Generate prediction points
+    # Calculate the lines: y = m*x + c
+    m1 = (p2[1] - p1[1]) / (p2[0] - p1[0])  # Slope of the lower line
+    c1 = p1[1] - m1 * p1[0]  # Intercept of the lower line
+
+    m2 = (p4[1] - p3[1]) / (p4[0] - p3[0])  # Slope of the upper line
+    c2 = p3[1] - m2 * p3[0]  # Intercept of the upper line
+
+    # Generate grid points
+    aoa_grid = np.linspace(p1[0], p4[0], 50)  # AoA values
+    mach_grid = np.linspace(min(p1[1], p4[1]), max(p2[1], p3[1]), 50)  # Mach values
+    AoA, Mach = np.meshgrid(aoa_grid, mach_grid)  # 2D grid
+
+    # Filter points within the lines
+    mask = (Mach <= m1 * AoA + c1) & (Mach <= m2 * AoA + c2)
+
+    # Apply the filter
+    AoA_filtered = AoA[mask]
+    Mach_filtered = Mach[mask]
+
+    # Reshape the filtered grid into a list of points for prediction
     X_pred = np.column_stack(
-        [np.full(Mach.size, altitude), Mach.ravel(), AoA.ravel(), np.full(Mach.size, aos)]
+        [
+            np.full(AoA_filtered.size, altitude),  # Altitude
+            Mach_filtered,  # Mach values
+            AoA_filtered,  # AoA values
+            np.full(AoA_filtered.size, aos),  # AoS
+        ]
     )
 
-    # Predict on the grid
-    predictions = predict_model(model, X_pred, y_test=None)
-    y_pred = predictions["y_pred"]
-    coeff_pred_surface = y_pred.reshape(Mach.shape)
+    # Predictions on filtered points
+    predictions = model.predict_values(X_pred)
 
-    # Filter DoE points at the selected altitude
-    doe_idx = np.isclose(X_train[:, 0], altitude)
-    doe_points = X_train[doe_idx]
-    doe_coeff = Y_train[doe_idx]
+    # Number of valid points
+    num_points = len(AoA_filtered)
 
-    coeff_doe_surface = griddata(
-        points=doe_points[:, 1:3],  # Use Mach and AoA as the grid dimensions
-        values=doe_coeff,  # Corresponding coefficent values
-        xi=(Mach, AoA),  # The mesh grid
-        method="linear",  # Interpolation method
-        fill_value=np.nan,  # Fill missing values with NaN
-    )
+    # Verify that the number of predictions matches the number of valid points
+    if num_points != predictions.size:
+        raise ValueError(
+            f"The predictions ({predictions.size}) do not match the number of valid points ({num_points}). "
+            "Check the grid or physical domain."
+        )
+
+    # Create the response surface using an interpolation method
+    coeff_pred_surface = predictions  # Directly use the filtered data
 
     # Plot the response surface
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(111, projection="3d")
 
-    # Plot predicted surface
-    surf_pred = ax.plot_surface(
-        Mach,
-        AoA,
-        coeff_pred_surface,
+    # Predicted surface with trisurf (for irregular grids)
+    ax.plot_trisurf(
+        Mach_filtered,  # Change AoA to Mach
+        AoA_filtered,  # Change Mach to AoA
+        coeff_pred_surface.flatten(),
         cmap="viridis",
         alpha=0.8,
         edgecolor="none",
-        label="Predicted Surface",
     )
 
-    # Plot DoE surface
-    surf_doe = ax.plot_surface(
-        Mach,
-        AoA,
-        coeff_doe_surface,
-        cmap="plasma",
-        alpha=0.5,
-        edgecolor="none",
-        label="DoE Surface",
-    )
+    # Filter DoE points at the selected altitude and AoS
+    doe_idx = (X[:, 0] == altitude) & (X[:, 3] == aos)
+    doe_points = X[doe_idx]
+    doe_coeff = y[doe_idx]
 
-    # Scatter DoE points
-    scatter = ax.scatter(
-        doe_points[:, 1],  # Mach of DoE points
-        doe_points[:, 2],  # AoA of DoE points
-        doe_coeff,  # values of DoE points
+    ax.scatter(
+        doe_points[:, 1],  # Mach
+        doe_points[:, 2],  # AoA
+        doe_coeff,  # Coefficients
         color="red",
+        marker="x",
         label="DoE Points",
         depthshade=False,
     )
 
+    # Scatter Low-Fidelity DoE points if provided
+    if X_LF is not None and y_LF is not None:
+        # Filter Low-Fidelity DoE points
+        lf_doe_idx = (X_LF[:, 0] == altitude) & (X_LF[:, 3] == aos)
+        lf_doe_points = X_LF[lf_doe_idx]
+        lf_doe_coeff = y_LF
+        # Scatter DoE points
+        scatter_lf = ax.scatter(
+            lf_doe_points[:, 1],  # Mach of DoE points
+            lf_doe_points[:, 2],  # AoA of DoE points
+            lf_doe_coeff,  # values of DoE points
+            marker="o",
+            label="LF DoE Points",
+            depthshade=False,
+        )
+
+    # Scatter Medium-Fidelity DoE points if provided
+    if X_MF is not None and y_MF is not None:
+        mf_doe_idx = (X_MF[:, 0] == altitude) & (X_MF[:, 3] == aos)
+        mf_doe_points = X_MF[mf_doe_idx]
+        mf_doe_coeff = y_MF["y_pred"]
+        scatter_mf = ax.scatter(
+            mf_doe_points[:, 1],  # Mach of MF points
+            mf_doe_points[:, 2],  # AoA of MF points
+            mf_doe_coeff,  # Coeff values
+            marker="^",
+            label="MF DoE Points",
+            depthshade=False,
+        )
+
     # Plot details
+    ax.set_xlim(ax.get_xlim()[::-1])
     ax.set_xlabel("Mach Number")
     ax.set_ylabel("Angle of Attack (AoA)")
     ax.set_zlabel(f"{coeff}")
     ax.set_title(f"Response Surface of {coeff} at Altitude = {altitude} m, AoS = {aos}°")
+    ax.legend()
 
-    ax.invert_xaxis()
+    # Color bar
+    colorbar = plt.colorbar(ax.collections[0], ax=ax, shrink=0.5, aspect=10)
+    colorbar.set_label(f"Predicted {coeff}")
 
-    # Aggiungi la legenda solo per gli scatter
-    ax.legend(handles=[scatter], loc="upper right")  # Usa solo lo scatter nella legenda
-
-    plt.colorbar(surf_doe, ax=ax, shrink=0.5, aspect=10, label=f"Predicted {coeff}")
     plt.show()
 
 
 def plot_coefficent_alpha_for_mach(
-    X_train, y_train, model, selected_mach_numbers, which_coefficent
+    altitude,
+    aos,
+    X,
+    y,
+    physical_domain_limits,
+    model,
+    selected_mach_numbers,
+    which_coefficent,
+    aoa_range=None,
+    X_LF=None,
+    y_LF=None,
+    X_MF=None,
+    y_MF=None,
 ):
     """
-    Plot the Coefficent vs AoA graph for three selected Mach numbers.
+    Plot the Coefficient vs AoA graph for three selected Mach numbers.
 
     Args:
-        X_train (np.ndarray): DoE points used for training (Mach, AoA, Altitude).
-        Y_train (np.ndarray): DoE values used for training (Coefficent).
+        X (np.ndarray): DoE points (Mach, AoA, Altitude).
+        y (np.ndarray): Coefficient values.
+        physical_domain_limits (dict, optional): Physical domain limits (p1, p2, p3, p4).
         model (object): Trained surrogate model.
         selected_mach_numbers (list): Three Mach numbers to visualize.
+        which_coefficent (str): Coefficient name (e.g., CL, CD).
+        X_LF (np.ndarray, optional): Low-fidelity DoE points.
+        y_LF (np.ndarray, optional): Low-fidelity Coefficient values.
+        X_MF (np.ndarray, optional): Medium-fidelity DoE points.
+        y_MF (np.ndarray, optional): Medium-fidelity Coefficient values.
     """
+    p1 = physical_domain_limits["p1"]
+    p2 = physical_domain_limits["p2"]
+    p3 = physical_domain_limits["p3"]
+    p4 = physical_domain_limits["p4"]
+
+    # Calculate the lines: y = m*x + c
+    m1 = (p2[1] - p1[1]) / (p2[0] - p1[0])  # Slope of the lower line
+    c1 = p1[1] - m1 * p1[0]  # Intercept of the lower line
+
+    m2 = (p4[1] - p3[1]) / (p4[0] - p3[0])  # Slope of the upper line
+    c2 = p3[1] - m2 * p3[0]  # Intercept of the upper line
 
     plt.figure(figsize=(10, 6))
 
-    # Plot DoE points and lines for reference
-    for mach in selected_mach_numbers:
-        mach_idx = np.isclose(X_train[:, 1], mach)
-        aoa_values = X_train[mach_idx, 2]  # AoA for this Mach
-        coef_values = y_train[mach_idx]  # Coefficent values for this Mach
+    # Define colors for each iteration
+    colors = ["black", "blue", "red"]
 
-        # Scatter plot of DoE points
+    # Plot DoE points and lines for reference
+    for i, mach in enumerate(selected_mach_numbers):
+
+        color = colors[i]
+
+        # Generate grid points
+        aoa_grid = np.linspace(p1[0], p4[0], 50)  # AoA values
+        mach_grid = np.full_like(aoa_grid, mach)  # Corresponding Mach values for this grid
+
+        # Calculate Mach values using the equation of the lines
+        mask = (mach_grid <= m1 * aoa_grid + c1) & (mach_grid <= m2 * aoa_grid + c2)
+
+        # Apply the mask to AoA values
+        aoa_filtered = aoa_grid[mask]
+
+        # High-fidelity DoE points (scatter)
+        mach_idx = np.isclose(X[:, 1], mach)
+        aoa_doe_values = X[mach_idx, 2]  # AoA for this Mach
+        coef_doe_values = y[mach_idx]  # Coefficient values for this Mach
         plt.scatter(
-            aoa_values,
-            coef_values,
+            aoa_doe_values,
+            coef_doe_values,
             label=f"DoE Points Mach = {mach:.2f}",
+            color=color,
             alpha=0.7,
+            marker="x",
         )
 
-        # Sort AoA and corresponding coefficent values for a smooth line
-        sorted_indices = np.argsort(aoa_values)
-        sorted_aoa = aoa_values[sorted_indices]
-        sorted_coef = coef_values[sorted_indices]
+        # Scatter Low-Fidelity points if provided
+        if X_LF is not None and y_LF is not None:
+            mach_idx_lf = np.isclose(X_LF[:, 1], mach)
+            aoa_values_lf = X_LF[mach_idx_lf, 2]
+            coef_values_lf = y_LF[mach_idx_lf]
+            plt.scatter(
+                aoa_values_lf,
+                coef_values_lf,
+                label=f"LF DoE Points Mach = {mach:.2f}",
+                color=color,
+                alpha=0.7,
+                marker="o",
+            )
 
-        # Line passing through the points
+        # Scatter Medium-Fidelity points if provided
+        if X_MF is not None and y_MF is not None:
+            mach_idx_mf = np.isclose(X_MF[:, 1], mach)
+            aoa_values_mf = X_MF[mach_idx_mf, 2]
+            coef_values_mf = y_MF[mach_idx_mf]
+            plt.scatter(
+                aoa_values_mf,
+                coef_values_mf,
+                label=f"MF DoE Points Mach = {mach:.2f}",
+                color=color,
+                alpha=0.7,
+                marker="^",
+            )
+
+        pred_points = np.column_stack(
+            [
+                np.full(aoa_filtered.shape, altitude),  # Altitude
+                np.full(aoa_filtered.shape, mach),  # Mach number
+                aoa_filtered,
+                np.full(aoa_filtered.shape, aos),  # AoS
+            ]
+        )
+        predictions = predict_model(model, pred_points, y_test=None)
+        y_pred = predictions["y_pred"]
+
         plt.plot(
-            sorted_aoa,
-            sorted_coef,
+            aoa_filtered,
+            y_pred,
             linestyle="-",
             alpha=0.8,
-            label=f"Line Mach = {mach:.2f}",
+            label=f"Model Prediction Mach = {mach:.2f}",
+            color=color,
         )
 
     # Plot details

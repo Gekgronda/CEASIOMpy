@@ -81,9 +81,9 @@ def update_values(
 
 
 # Percorsi principali
-input_file = "/wrk/Gronda/labAR/EULER/00_symmetry/takeoff100/NewTool.xml"
-dataset_path = "//wrk/Gronda/labAR/EULER/00_symmetry/datasets/takeoff.csv"
-directory_path = "/wrk/Gronda/labAR/EULER/00_symmetry/takeoff100"
+input_file = "/wrk/Gronda/validazione/mengmeng/D150_simple.xml"
+dataset_path = "/wrk/Gronda/validazione/mengmeng/EULER.csv"
+directory_path = "/wrk/Gronda/validazione/mengmeng"
 
 # Leggi il dataset
 data = pd.read_csv(dataset_path)
@@ -100,15 +100,16 @@ symmetry = ["True"]  # symmetry
 
 
 # Parametri mesh Euleriana
-farfield_factors = [10.0]
-mesh_farfields = [3.0]
-fuselage_factors = [6]
-wing_factors = [26.0]
-n_power_factors = [2.0]
-n_power_fields = [1.0]
-le_te_layers = [14]
+farfield_factor = [8.0]
+mesh_farfield = [20.0]
+fuselage_factor = [4]
+wing_factor = [2]
+n_power_factor = [2.0]
+n_power_field = [1.0]
+le_te_layers = [4]
 refine_truncated = ["False"]  # refine_truncated
 auto_refine = ["True"]  # auto_refine
+
 
 # parametri mesh RANS
 number_layer = [10]
@@ -128,7 +129,7 @@ derivatives = ["False"]  # calculateDampingDerivatives
 rotation = [1.0]  # rotationRate
 control_surfaces = ["False"]  # calculateControlSurfacesDeflections
 cpu = [9]  # nbCPU
-iters = [800]  # maxIter
+iters = [1500]  # maxIter
 cfl_adption = ["True"]  # value
 cflAdFactorDown = [0.5]  # factor_down
 cflAdFactorUp = [1.5]  # factor_up
@@ -144,27 +145,27 @@ extraLoads = ["False"]  # extractLoads
 euler_mesh_params = [
     {
         "path": "/cpacs/toolspecific/CEASIOMpy/mesh/gmshOptions/farfield_factor",
-        "value": farfield_factors,
+        "value": farfield_factor,
     },
     {
         "path": "/cpacs/toolspecific/CEASIOMpy/mesh/gmshOptions/mesh_size/farfield",
-        "value": mesh_farfields,
+        "value": mesh_farfield,
     },
     {
         "path": "/cpacs/toolspecific/CEASIOMpy/mesh/gmshOptions/mesh_size/fuselage/factor",
-        "value": fuselage_factors,
+        "value": fuselage_factor,
     },
     {
         "path": "/cpacs/toolspecific/CEASIOMpy/mesh/gmshOptions/mesh_size/wings/factor",
-        "value": wing_factors,
+        "value": wing_factor,
     },
     {
         "path": "/cpacs/toolspecific/CEASIOMpy/mesh/gmshOptions/n_power_factor",
-        "value": n_power_factors,
+        "value": n_power_factor,
     },
     {
         "path": "/cpacs/toolspecific/CEASIOMpy/mesh/gmshOptions/n_power_field",
-        "value": n_power_fields,
+        "value": n_power_field,
     },
     {"path": "/cpacs/toolspecific/CEASIOMpy/mesh/gmshOptions/number_layer", "value": le_te_layers},
     {
