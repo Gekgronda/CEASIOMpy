@@ -4,9 +4,9 @@ import pandas as pd
 import subprocess
 
 # Definire i percorsi
-principal_path = "/wrk/Gronda/labAR/EULER/takeoff1"
-original_config_path = "/wrk/Gronda/labAR/EULER/takeoff1/ConfigCFD.cfg"
-dataset_path = "/wrk/Gronda/labAR/EULER/takeoff1/takeoff1_with_fluid.csv"
+principal_path = "/wrk/Gronda/validazione/mengmeng"
+original_config_path = "/wrk/Gronda/validazione/mengmeng/ConfigCFD.cfg"
+dataset_path = "/wrk/Gronda/validazione/mengmeng/EULER.csv"
 
 # Leggere il dataset
 data = pd.read_csv(dataset_path)

@@ -288,536 +288,539 @@ full_path2 = os.path.join(directory_path, output_filename2)
 
 save_to_csv(aeromap1, full_path2)
 
+input("Press ENTER to continue....")
+
 # print("New aeromap saved")
 # input("Press ENTER to continue....")
 
-# # LAUNCH EULER
+# LAUNCH EULER
 
-# # Update aeromap for euler
-# print("Updating aeromap for Euler simulations")
-# input("Press ENTER to continue....")
+# Update aeromap for euler
+print("Updating aeromap for Euler simulations")
+input("Press ENTER to continue....")
 
-# aeromap_uid = "euler_aeromap"
-# aeromap_name = "euler_aeromap"
+aeromap_uid = "euler_aeromap"
+aeromap_name = "euler_aeromap"
 
-# tixi = Tixi3()
-# tixi.open(input_cpacs_path)
+tixi = Tixi3()
+tixi.open(input_cpacs_path)
 
-# try:
-#     # add the new aeroMa
-#     add_new_aeromap(tixi, aeromap1, aeromap_uid, aeromap_name)
-#     # save the updated CPACS file
-#     tixi.save(input_cpacs_path)
-#     print("New aeroMap added successfully!")
-# except Exception as e:
-#     print(f"Error adding aeroMap: {e}")
-# finally:
-#     tixi.close()
-
-
-# print("Updating parameters for Euler simulations")
-# input("Press ENTER to continue....")
-
-# # General parameters
-# open_gmsh_gui = ["False"]
-# export_propellers = ["False"]
-# type_mesh = ["Euler"]  # type_mesh
-# symmetry = ["True"]  # symmetry
-
-# # Parametri mesh Euleriana
-# farfield_factor = [10.0]
-# mesh_farfield = [3.0]
-# fuselage_factor = [6]
-# wing_factor = [26.0]
-# engines = [0.23]
-# propellers = [0.23]
-# n_power_factor = [2.0]
-# n_power_field = [1.0]
-# le_te_layers = [14]
-# refine_truncated = ["False"]  # refine_truncated
-# auto_refine = ["True"]  # auto_refine
-
-# # SU2
-# config_type = type_mesh
-# derivatives = ["False"]  # calculateDampingDerivatives
-# rotation = [1.0]  # rotationRate
-# control_surfaces = ["False"]  # calculateControlSurfacesDeflections
-# includeActuatorDisk = ["None;None"]
-# cpu = [9]  # nbCPU
-# iters = [1]  # maxIter
-# cfl_adption = ["True"]  # value
-# cflAdFactorDown = [0.5]  # factor_down
-# cflAdFactorUp = [1.5]  # factor_up
-# cflMinValue = [0.5]  # min
-# cflMaxValue = [100.0]  # max
-# cfl_value = [1]  # cfl value
-# multiGrid = [3]  # multigridLevel
-# wettedArea = ["True"]  # updateWettedArea
-# extraLoads = ["False"]  # extractLoads
+try:
+    # add the new aeroMa
+    add_new_aeromap(tixi, aeromap1, aeromap_uid, aeromap_name)
+    # save the updated CPACS file
+    tixi.save(input_cpacs_path)
+    print("New aeroMap added successfully!")
+except Exception as e:
+    print(f"Error adding aeroMap: {e}")
+finally:
+    tixi.close()
 
 
-# # Conversion of lists of dictionaries to simple dictionaries
+print("Updating parameters for Euler simulations")
+input("Press ENTER to continue....")
 
-# # Common mesh parameters
-# common_mesh_params = {
-#     "open_gui": open_gmsh_gui,
-#     "type_mesh": type_mesh,
-#     "symmetry": symmetry,
-#     "exportPropellers": export_propellers,
-# }
+# General parameters
+open_gmsh_gui = ["False"]
+export_propellers = ["False"]
+type_mesh = ["Euler"]  # type_mesh
+symmetry = ["True"]  # symmetry
 
-# # Euler mesh parameters
-# euler_mesh_params = {
-#     "farfield_factor": farfield_factor,
-#     "mesh_size/farfield": mesh_farfield,
-#     "mesh_size/fuselage/factor": fuselage_factor,
-#     "mesh_size/wings/factor": wing_factor,
-#     "mesh_size/engines": engines,
-#     "mesh_size/propellers": propellers,
-#     "n_power_factor": n_power_factor,
-#     "n_power_field": n_power_field,
-#     "number_layer": le_te_layers,
-#     "refine_truncated": refine_truncated,
-#     "auto_refine": auto_refine,
-# }
+# Parametri mesh Euleriana
+farfield_factor = [10.0]
+mesh_farfield = [3.0]
+fuselage_factor = [6]
+wing_factor = [26.0]
+engines = [0.23]
+propellers = [0.23]
+n_power_factor = [2.0]
+n_power_field = [1.0]
+le_te_layers = [14]
+refine_truncated = ["False"]  # refine_truncated
+auto_refine = ["True"]  # auto_refine
 
-# # SU2 parameters
-# su2_params = {
-#     "aeroMapUID": aeromap_name,
-#     "options/calculateDampingDerivatives": derivatives,
-#     "options/config_type": config_type,
-#     "options/rotationRate": rotation,
-#     "options/calculateControlSurfacesDeflections": control_surfaces,
-#     "options/includeActuatorDisk": includeActuatorDisk,
-#     "settings/nbCPU": cpu,
-#     "settings/maxIter": iters,
-#     "settings/cflNumber/value": cfl_value,
-#     "settings/cflNumber/adaptation/value": cfl_adption,
-#     "settings/cflNumber/adaptation/factor_down": cflAdFactorDown,
-#     "settings/cflNumber/adaptation/factor_up": cflAdFactorUp,
-#     "settings/cflNumber/adaptation/min": cflMinValue,
-#     "settings/cflNumber/adaptation/max": cflMaxValue,
-#     "settings/multigridLevel": multiGrid,
-#     "results/updateWettedArea": wettedArea,
-#     "results/extractLoads": extraLoads,
-# }
+# SU2
+config_type = type_mesh
+derivatives = ["False"]  # calculateDampingDerivatives
+rotation = [1.0]  # rotationRate
+control_surfaces = ["False"]  # calculateControlSurfacesDeflections
+includeActuatorDisk = ["None;None"]
+cpu = [9]  # nbCPU
+iters = [1]  # maxIter
+cfl_adption = ["True"]  # value
+cflAdFactorDown = [0.5]  # factor_down
+cflAdFactorUp = [1.5]  # factor_up
+cflMinValue = [0.5]  # min
+cflMaxValue = [100.0]  # max
+cfl_value = [1]  # cfl value
+multiGrid = [3]  # multigridLevel
+wettedArea = ["True"]  # updateWettedArea
+extraLoads = ["False"]  # extractLoads
 
-# tixi = Tixi3()
-# tixi.open(input_cpacs_path)
 
-# try:
-#     euler_update(tixi, aeromap_name, common_mesh_params, euler_mesh_params, su2_params)
-#     # save the updated CPACS file
-#     tixi.save(input_cpacs_path)
-#     print("Euleran parameters updated successfully!")
-# except Exception as e:
-#     print(f"Error updating parameters: {e}")
-# finally:
-#     tixi.close()
+# Conversion of lists of dictionaries to simple dictionaries
 
-# input("Press ENTER to continue....")
+# Common mesh parameters
+common_mesh_params = {
+    "open_gui": open_gmsh_gui,
+    "type_mesh": type_mesh,
+    "symmetry": symmetry,
+    "exportPropellers": export_propellers,
+}
 
-# # LAUNCH EULER COMMAND
-# print("CPACS updated, running GMSH and SU2 Module in CEASIOMpy...")
-# command = (
-#     f"cd {os.path.abspath(directory_path)} && "
-#     f"ceasiompy_run -m {os.path.abspath(input_cpacs_path)} CPACS2GMSH SU2Run"
-# )
+# Euler mesh parameters
+euler_mesh_params = {
+    "farfield_factor": farfield_factor,
+    "mesh_size/farfield": mesh_farfield,
+    "mesh_size/fuselage/factor": fuselage_factor,
+    "mesh_size/wings/factor": wing_factor,
+    "mesh_size/engines": engines,
+    "mesh_size/propellers": propellers,
+    "n_power_factor": n_power_factor,
+    "n_power_field": n_power_field,
+    "number_layer": le_te_layers,
+    "refine_truncated": refine_truncated,
+    "auto_refine": auto_refine,
+}
 
-# default_second_kriging_dataset_path = (
-#     "/wrk/Gronda/labAR/prove_codice/EULER_dataset_TRAIN_default.csv"
-# )
-# train_second_kriging_dataset_path = None  # Initialize with None
+# SU2 parameters
+su2_params = {
+    "aeroMapUID": aeromap_name,
+    "options/calculateDampingDerivatives": derivatives,
+    "options/config_type": config_type,
+    "options/rotationRate": rotation,
+    "options/calculateControlSurfacesDeflections": control_surfaces,
+    "options/includeActuatorDisk": includeActuatorDisk,
+    "settings/nbCPU": cpu,
+    "settings/maxIter": iters,
+    "settings/cflNumber/value": cfl_value,
+    "settings/cflNumber/adaptation/value": cfl_adption,
+    "settings/cflNumber/adaptation/factor_down": cflAdFactorDown,
+    "settings/cflNumber/adaptation/factor_up": cflAdFactorUp,
+    "settings/cflNumber/adaptation/min": cflMinValue,
+    "settings/cflNumber/adaptation/max": cflMaxValue,
+    "settings/multigridLevel": multiGrid,
+    "results/updateWettedArea": wettedArea,
+    "results/extractLoads": extraLoads,
+}
 
-# try:
-#     print("Euler simulation started. Press Ctrl+C to interrupt manually.")
-#     # Run the command with subprocess.run()
-#     result = subprocess.run(command, shell=True, check=True, text=True, capture_output=True)
+tixi = Tixi3()
+tixi.open(input_cpacs_path)
 
-#     # Check if the process completed successfully
-#     if result.returncode == 0:
-#         print("Simulations completed successfully!")
-#     else:
-#         print("An error occurred during the simulations!")
-# except subprocess.CalledProcessError as e:
-#     print(f"Error occurred during the simulation: {e.stderr}")
-#     # Use the default dataset if there was an error
-#     train_second_kriging_dataset_path = default_second_kriging_dataset_path
-#     result = None  # Ensure result is defined
-# except KeyboardInterrupt:
-#     print("\nSimulation manually interrupted.")
-#     # Manually set to default dataset if interrupted
-#     train_second_kriging_dataset_path = default_second_kriging_dataset_path
-#     result = None  # Ensure result is defined
+try:
+    euler_update(tixi, aeromap_name, common_mesh_params, euler_mesh_params, su2_params)
+    # save the updated CPACS file
+    tixi.save(input_cpacs_path)
+    print("Euleran parameters updated successfully!")
+except Exception as e:
+    print(f"Error updating parameters: {e}")
+finally:
+    tixi.close()
 
-# # DEFINE the CSV filename for the EULER dataset
-# csv_filename2 = "/wrk/Gronda/labAR/prove_codice/EULER_dataset.csv"
+input("Press ENTER to continue....")
 
-# # PROCESS SIMULATION RESULTS OR USE DEFAULT DATASET
-# if result and result.returncode == 0:
-#     # If the process completed, analyze the results
-#     latest_workflow_path = get_latest_workflow(directory_path)
-#     if latest_workflow_path:
-#         results_path = os.path.join(latest_workflow_path, "Results", "SU2")
-#         print("Latest Workflow:", latest_workflow_path)
-#         print("Results Path:", results_path)
+# LAUNCH EULER COMMAND
+print("CPACS updated, running GMSH and SU2 Module in CEASIOMpy...")
+command = (
+    f"cd {os.path.abspath(directory_path)} && "
+    f"ceasiompy_run -m {os.path.abspath(input_cpacs_path)} CPACS2GMSH SU2Run"
+)
 
-#         if os.path.isdir(results_path):
-#             data2 = extract_coefficients_from_SU2(results_path)
-#             print(data2)
-#             train_second_kriging_dataset_path = append_to_new_csv(data2, csv_filename2)
-#         else:
-#             print(f"Error: The directory {results_path} does not exist.")
-#     else:
-#         print("No workflow found.")
-# else:
-#     # Use the default dataset if the process was interrupted
-#     print(f"Using the default Euler dataset: {default_second_kriging_dataset_path}")
-#     train_second_kriging_dataset_path = default_second_kriging_dataset_path
+default_second_kriging_dataset_path = (
+    "/wrk/Gronda/labAR/prove_codice/EULER_dataset_TRAIN_default.csv"
+)
+train_second_kriging_dataset_path = None  # Initialize with None
 
-# input("Press ENTER to continue....")
+try:
+    print("Euler simulation started. Press Ctrl+C to interrupt manually.")
+    # Run the command with subprocess.run()
+    result = subprocess.run(command, shell=True, check=True, text=True, capture_output=True)
 
-# # TRAINING MULTI-FIDELITY KRIGING MODEL
-# print("Training new multi-fidelity surrogate model")
+    # Check if the process completed successfully
+    if result.returncode == 0:
+        print("Simulations completed successfully!")
+    else:
+        print("An error occurred during the simulations!")
+except subprocess.CalledProcessError as e:
+    print(f"Error occurred during the simulation: {e.stderr}")
+    # Use the default dataset if there was an error
+    train_second_kriging_dataset_path = default_second_kriging_dataset_path
+    result = None  # Ensure result is defined
+except KeyboardInterrupt:
+    print("\nSimulation manually interrupted.")
+    # Manually set to default dataset if interrupted
+    train_second_kriging_dataset_path = default_second_kriging_dataset_path
+    result = None  # Ensure result is defined
 
-# df2 = load_and_split_data(
-#     train_second_kriging_dataset_path,
-#     default_second_kriging_dataset_path,
-# )
-# print(df2)
-# X2 = df2["dataset"]["X"]
-# y2 = df2["dataset"]["y"]
-# coefficent2 = y2["CL"]
+# DEFINE the CSV filename for the EULER dataset
+csv_filename2 = "/wrk/Gronda/labAR/prove_codice/EULER_dataset.csv"
+
+# PROCESS SIMULATION RESULTS OR USE DEFAULT DATASET
+if result and result.returncode == 0:
+    # If the process completed, analyze the results
+    latest_workflow_path = get_latest_workflow(directory_path)
+    if latest_workflow_path:
+        results_path = os.path.join(latest_workflow_path, "Results", "SU2")
+        print("Latest Workflow:", latest_workflow_path)
+        print("Results Path:", results_path)
+
+        if os.path.isdir(results_path):
+            data2 = extract_coefficients_from_SU2(results_path)
+            print(data2)
+            train_second_kriging_dataset_path = append_to_new_csv(data2, csv_filename2)
+        else:
+            print(f"Error: The directory {results_path} does not exist.")
+    else:
+        print("No workflow found.")
+else:
+    # Use the default dataset if the process was interrupted
+    print(f"Using the default Euler dataset: {default_second_kriging_dataset_path}")
+    train_second_kriging_dataset_path = default_second_kriging_dataset_path
+
+input("Press ENTER to continue....")
+
+# TRAINING MULTI-FIDELITY KRIGING MODEL
+print("Training new multi-fidelity surrogate model")
+
+df2 = load_and_split_data(
+    train_second_kriging_dataset_path,
+    default_second_kriging_dataset_path,
+)
+print(df2)
+X2 = df2["dataset"]["X"]
+y2 = df2["dataset"]["y"]
+coefficent2 = y2["CL"]
+
+# Normalize data
+# normalized_data2 = normalize_data(df2)
+
+# Split test and training
+
+train_test_values2 = test_training_data(X2, coefficent2)
+
+X_train2 = train_test_values2["X_train"]
+X_test2 = train_test_values2["X_test"]
+y_train2 = train_test_values2["y_train"]
+y_test2 = train_test_values2["y_test"]
+
+print("Data splitted, now training and evaluating surrogate model")
+input("Press ENTER to continue....")
+
+# Train module and predict
+
+theta2 = [0.01]
+corr2 = "matern32"
+poly2 = "constant"  #
+
+model2 = MF_Kriging(X_train1, y_train1, X_train2, y_train2, theta2, corr2, poly2)
+predictions2 = predict_mf_model(model2, X_test2, y_test2)
+
+y_pred2 = predictions2["y_pred"]
+var2 = predictions2["variance"]
+
+# RMSE X CONFRONTO
+rms2 = compute_rms_error(model2, X_test2, y_test2)
+# aggiungi grafico confronto y e ypred
+
+print(f"x train: {X_train2}")
+print(f"x test: {X_test2}")
+print(f"y test: {y_test2}")
+print(f"y pred: {y_pred2}")
+print(f"variance: {var2}")
+
+# EVALUATE HIGH VARIANCE DATA AND SAMPLING
+
+var_flat2 = var2.flatten()
+
+sorted_indices2 = np.argsort(var_flat2)[::-1]
+n_samples2 = n_samples1 // 5
+top_n_indices2 = sorted_indices2[:n_samples2]
+top_n_X_test2 = X_test2[top_n_indices2]
+
+# Stampa i risultati
+print(f"Top {n_samples2} variances: {var_flat2[top_n_indices2]}")
+print(f"Top {n_samples2} X_test samples: {top_n_X_test2}")
+
+altitude2 = top_n_X_test2[:, 0]
+machNumber2 = top_n_X_test2[:, 1]
+angleOfAttack2 = top_n_X_test2[:, 2]
+angleOfSideslip2 = top_n_X_test2[:, 3]
+print(altitude2)
+print(machNumber2)
+print(angleOfAttack2)
+print(angleOfSideslip2)
+
+# dictionary aeromap
+aeromap_columns2 = ["altitude", "machNumber", "angleOfAttack", "angleOfSideslip"]
+aeromap2 = {name: top_n_X_test2[:, i] for i, name in enumerate(aeromap_columns2)}
+
+for key, value in aeromap2.items():
+    print(f"{key}: {value}")
+
+print(aeromap2)
+print(type(aeromap2))
+# miglioramento: aggiungere una funzione di densita per evitare che i putni siano troppo vicini
+# miglioramento: confrontare ad ogni step i modelli kriging x valutare un effettivo miglioramento
+
+output_filename3 = "RANS_dataset.csv"
+full_path3 = os.path.join(directory_path, output_filename3)
+
+save_to_csv(aeromap2, full_path3)
+
+print("New aeromap saved")
+input("Press ENTER to continue....")
+
+# LAUNCH RANS
+
+print("Updating aeromap for RANS simulations")
+input("Press ENTER to continue....")
+
+
+aeromap_uid = "RANS_aeromap"
+aeromap_name = "RANS_aeromap"
+
+tixi = Tixi3()
+tixi.open(input_cpacs_path)
+
+try:
+    # add the new aeroMap
+    add_new_aeromap(tixi, aeromap2, aeromap_uid, aeromap_name)
+    # save the updated CPACS file
+    tixi.save(input_cpacs_path)
+    print("New aeroMap added successfully!")
+except Exception as e:
+    print(f"Error adding aeroMap: {e}")
+finally:
+    tixi.close()
+
+
+print("Updating parameters for RANS simulations")
+input("Press ENTER to continue....")
+
+# General parameters
+open_gmsh_gui = ["False"]
+export_propellers = ["False"]
+type_mesh = ["RANS"]  # type_mesh
+symmetry = ["True"]  # symmetry
+
+# parametri mesh RANS
+farfield_factor = [3.0]
+number_layer = [10]
+height_first_layer = [3.0]
+max_thickness_layer = [100.0]
+growth_ratio = [1.2]
+growth_factor = [1.4]
+feature_angle = [40]
+surface_mesh_size = [5.0]  # gmshOptionsmin_max_mesh_factor
+surface_max_size = [0.0008]  # DA CREARE:gmshOptionsmax_mesh_factor
+surface_min_size = [0.0002]  # DA CREARE: gmshOptionsmin_mesh_factor
+intake_percent = [20.0]
+exhaust_percent = [20.0]
+
+# SU2
+config_type = type_mesh
+derivatives = ["False"]  # calculateDampingDerivatives
+rotation = [1.0]  # rotationRate
+control_surfaces = ["False"]  # calculateControlSurfacesDeflections
+includeActuatorDisk = ["None;None"]
+cpu = [9]  # nbCPU
+iters = [5000]  # maxIter
+cfl_adption = ["True"]  # value
+cflAdFactorDown = [0.5]  # factor_down
+cflAdFactorUp = [1.5]  # factor_up
+cflMinValue = [0.5]  # min
+cflMaxValue = [100.0]  # max
+cfl_value = [1]  # cfl value
+multiGrid = [3]  # multigridLevel
+wettedArea = ["True"]  # updateWettedArea
+extraLoads = ["False"]  # extractLoads
+
+# Common mesh parameters
+common_mesh_params = {
+    "open_gui": open_gmsh_gui,
+    "type_mesh": type_mesh,
+    "symmetry": symmetry,
+    "exportPropellers": export_propellers,
+}
+
+# RANS mesh params
+rans_mesh_params = {
+    "farfield_factor": farfield_factor,
+    "number_layer": number_layer,
+    "height_first_layer": height_first_layer,
+    "max_thickness_layer": max_thickness_layer,
+    "growth_ratio": growth_ratio,
+    "growth_factor": growth_factor,
+    "feature_angle": feature_angle,
+    "intake_percent": intake_percent,
+    "exhaust_percent": exhaust_percent,
+}
+
+# aggiusta xk ultime due nn esistono
+gmsh_options = {
+    "gmshOptionsmin_max_mesh_factor": surface_mesh_size,
+    "gmshOptionsmin_mesh_factor": surface_min_size,
+    "gmshOptionsmax_mesh_factor": surface_max_size,
+}
+
+# SU2 parameters
+su2_params = {
+    "aeroMapUID": aeromap_name,
+    "options/calculateDampingDerivatives": derivatives,
+    "options/config_type": config_type,
+    "options/rotationRate": rotation,
+    "options/calculateControlSurfacesDeflections": control_surfaces,
+    "options/includeActuatorDisk": includeActuatorDisk,
+    "settings/nbCPU": cpu,
+    "settings/maxIter": iters,
+    "settings/cflNumber/value": cfl_value,
+    "settings/cflNumber/adaptation/value": cfl_adption,
+    "settings/cflNumber/adaptation/factor_down": cflAdFactorDown,
+    "settings/cflNumber/adaptation/factor_up": cflAdFactorUp,
+    "settings/cflNumber/adaptation/min": cflMinValue,
+    "settings/cflNumber/adaptation/max": cflMaxValue,
+    "settings/multigridLevel": multiGrid,
+    "results/updateWettedArea": wettedArea,
+    "results/extractLoads": extraLoads,
+}
+
+
+tixi = Tixi3()
+tixi.open(input_cpacs_path)
+
+try:
+    # add the new aeroMa
+    add_new_aeromap(tixi, aeromap2, aeromap_uid, aeromap_name)
+    rans_update(tixi, aeromap_name, common_mesh_params, rans_mesh_params, gmsh_options, su2_params)
+    # save the updated CPACS file
+    tixi.save(input_cpacs_path)
+    print("RANS parameters updated successfully!")
+except Exception as e:
+    print(f"Error updating parameters: {e}")
+finally:
+    tixi.close()
+
+
+input("Press ENTER to continue....")
+
+
+# LAUNCH RANS COMMAND
+print("CPACS updated, running GMSH and SU2 Module in CEASIOMpy...")
+command = (
+    f"cd {os.path.abspath(directory_path)} && "
+    f"ceasiompy_run -m {os.path.abspath(input_cpacs_path)} CPACS2GMSH SU2Run"
+)
+
+default_third_kriging_dataset_path = (
+    "/wrk/Gronda/labAR/prove_codice/RANS_dataset_TRAIN_default.csv"
+)
+train_third_kriging_dataset_path = None  # Initialize with None
+
+try:
+    print("RANS simulation started. Press Ctrl+C to interrupt manually.")
+    # Run the command with subprocess.run()
+    result = subprocess.run(command, shell=True, check=True, text=True, capture_output=True)
+
+    # Check if the process completed successfully
+    if result.returncode == 0:
+        print("Simulations completed successfully!")
+    else:
+        print("An error occurred during the simulations!")
+except subprocess.CalledProcessError as e:
+    print(f"Error occurred during the simulation: {e.stderr}")
+    # Use the default dataset if there was an error
+    train_third_kriging_dataset_path = default_third_kriging_dataset_path
+    result = None  # Ensure result is defined
+except KeyboardInterrupt:
+    print("\nSimulation manually interrupted.")
+    # Manually set to default dataset if interrupted
+    train_third_kriging_dataset_path = default_third_kriging_dataset_path
+    result = None  # Ensure result is defined
+
+# DEFINE the CSV filename for the EULER dataset
+csv_filename3 = "/wrk/Gronda/labAR/prove_codice/RANS_dataset.csv"
+
+# PROCESS SIMULATION RESULTS OR USE DEFAULT DATASET
+if result and result.returncode == 0:
+    # If the process completed, analyze the results
+    latest_workflow_path = get_latest_workflow(directory_path)
+    if latest_workflow_path:
+        results_path = os.path.join(latest_workflow_path, "Results", "SU2")
+        print("Latest Workflow:", latest_workflow_path)
+        print("Results Path:", results_path)
+
+        if os.path.isdir(results_path):
+            data3 = extract_coefficients_from_SU2(results_path)
+            print(data2)
+            train_third_kriging_dataset_path = append_to_new_csv(data3, csv_filename3)
+        else:
+            print(f"Error: The directory {results_path} does not exist.")
+    else:
+        print("No workflow found.")
+else:
+    # Use the default dataset if the process was interrupted
+    print(f"Using the default RANS dataset: {default_third_kriging_dataset_path}")
+    train_third_kriging_dataset_path = default_third_kriging_dataset_path
+
+input("Press ENTER to continue....")
+
+# TRAINING FINAL MULTI-FIDELITY KRIGING MODEL
+print("Training new multi-fidelity surrogate model")
+
+df3 = load_and_split_data(
+    train_third_kriging_dataset_path,
+    default_third_kriging_dataset_path,
+)
+print(df3)
+X3 = df3["dataset"]["X"]
+y3 = df3["dataset"]["y"]
+coefficent3 = y3["CL"]
 
 # # Normalize data
-# # normalized_data2 = normalize_data(df2)
+# normalized_data3 = normalize_data(df3)
 
-# # Split test and training
+# Split test and training
 
-# train_test_values2 = test_training_data(X2, coefficent2)
+train_test_values3 = test_training_data(X3, coefficent3)
 
-# X_train2 = train_test_values2["X_train"]
-# X_test2 = train_test_values2["X_test"]
-# y_train2 = train_test_values2["y_train"]
-# y_test2 = train_test_values2["y_test"]
+X_train3 = train_test_values3["X_train"]
+X_test3 = train_test_values3["X_test"]
+y_train3 = train_test_values3["y_train"]
+y_test3 = train_test_values3["y_test"]
 
-# print("Data splitted, now training and evaluating surrogate model")
-# input("Press ENTER to continue....")
+print("Data splitted, now training and evaluating surrogate model")
+input("Press ENTER to continue....")
 
-# # Train module and predict
+# Train module and predict
 
-# theta2 = [0.01]
-# corr2 = "matern32"
-# poly2 = "constant"  #
+theta3 = [0.01]
+corr3 = "matern32"
+poly3 = "constant"
 
-# model2 = MF_Kriging(X_train1, y_train1, X_train2, y_train2, theta2, corr2, poly2)
-# predictions2 = predict_mf_model(model2, X_test2, y_test2)
+model3 = MF_Kriging(
+    X_train1, y_train1, X_train2, y_train2, theta3, corr3, poly3, X_train3, y_train3
+)
+predictions3 = predict_mf_model(model3, X_test3, y_test3)
 
-# y_pred2 = predictions2["y_pred"]
-# var2 = predictions2["variance"]
+y_pred3 = predictions3["y_pred"]
+var3 = predictions3["variance"]
 
-# # RMSE X CONFRONTO
-# rms2 = compute_rms_error(model2, X_test2, y_test2)
-# # aggiungi grafico confronto y e ypred
+# RMSE X CONFRONTO
+rms3 = compute_rms_error(model3, X_test3, y_test3)
+# aggiungi grafico confronto y e ypred
 
-# print(f"x train: {X_train2}")
-# print(f"x test: {X_test2}")
-# print(f"y test: {y_test2}")
-# print(f"y pred: {y_pred2}")
-# print(f"variance: {var2}")
+print(f"x train: {X_train3}")
+print(f"x test: {X_test3}")
+print(f"y test: {y_test3}")
+print(f"y pred: {y_pred3}")
+print(f"variance: {var3}")
 
-# # EVALUATE HIGH VARIANCE DATA AND SAMPLING
+print("rmse comparison")
+print(f"rms first kriging: {rms1}")
+print(f"rms second kriging: {rms2}")
+print(f"rms third kriging: {rms3}")
 
-# var_flat2 = var2.flatten()
+base_model_name = "surrogate_model"
+model_extension = ".pkl"
 
-# sorted_indices2 = np.argsort(var_flat2)[::-1]
-# n_samples2 = n_samples1 // 5
-# top_n_indices2 = sorted_indices2[:n_samples2]
-# top_n_X_test2 = X_test2[top_n_indices2]
-
-# # Stampa i risultati
-# print(f"Top {n_samples2} variances: {var_flat2[top_n_indices2]}")
-# print(f"Top {n_samples2} X_test samples: {top_n_X_test2}")
-
-# altitude2 = top_n_X_test2[:, 0]
-# machNumber2 = top_n_X_test2[:, 1]
-# angleOfAttack2 = top_n_X_test2[:, 2]
-# angleOfSideslip2 = top_n_X_test2[:, 3]
-# print(altitude2)
-# print(machNumber2)
-# print(angleOfAttack2)
-# print(angleOfSideslip2)
-
-# # dictionary aeromap
-# aeromap_columns2 = ["altitude", "machNumber", "angleOfAttack", "angleOfSideslip"]
-# aeromap2 = {name: top_n_X_test2[:, i] for i, name in enumerate(aeromap_columns2)}
-
-# for key, value in aeromap2.items():
-#     print(f"{key}: {value}")
-
-# print(aeromap2)
-# print(type(aeromap2))
-# # miglioramento: aggiungere una funzione di densita per evitare che i putni siano troppo vicini
-# # miglioramento: confrontare ad ogni step i modelli kriging x valutare un effettivo miglioramento
-
-# output_filename3 = "RANS_dataset.csv"
-# full_path3 = os.path.join(directory_path, output_filename3)
-
-# save_to_csv(aeromap2, full_path3)
-
-# print("New aeromap saved")
-# input("Press ENTER to continue....")
-
-# # LAUNCH RANS
-
-# print("Updating aeromap for RANS simulations")
-# input("Press ENTER to continue....")
-
-
-# aeromap_uid = "RANS_aeromap"
-# aeromap_name = "RANS_aeromap"
-
-# tixi = Tixi3()
-# tixi.open(input_cpacs_path)
-
-# try:
-#     # add the new aeroMap
-#     add_new_aeromap(tixi, aeromap2, aeromap_uid, aeromap_name)
-#     # save the updated CPACS file
-#     tixi.save(input_cpacs_path)
-#     print("New aeroMap added successfully!")
-# except Exception as e:
-#     print(f"Error adding aeroMap: {e}")
-# finally:
-#     tixi.close()
-
-
-# print("Updating parameters for RANS simulations")
-# input("Press ENTER to continue....")
-
-# # General parameters
-# open_gmsh_gui = ["False"]
-# export_propellers = ["False"]
-# type_mesh = ["RANS"]  # type_mesh
-# symmetry = ["True"]  # symmetry
-
-# # parametri mesh RANS
-# farfield_factor = [3.0]
-# number_layer = [10]
-# height_first_layer = [3.0]
-# max_thickness_layer = [100.0]
-# growth_ratio = [1.2]
-# growth_factor = [1.4]
-# feature_angle = [40]
-# surface_mesh_size = [5.0]  # gmshOptionsmin_max_mesh_factor
-# surface_max_size = [0.0008]  # DA CREARE:gmshOptionsmax_mesh_factor
-# surface_min_size = [0.0002]  # DA CREARE: gmshOptionsmin_mesh_factor
-# intake_percent = [20.0]
-# exhaust_percent = [20.0]
-
-# # SU2
-# config_type = type_mesh
-# derivatives = ["False"]  # calculateDampingDerivatives
-# rotation = [1.0]  # rotationRate
-# control_surfaces = ["False"]  # calculateControlSurfacesDeflections
-# includeActuatorDisk = ["None;None"]
-# cpu = [9]  # nbCPU
-# iters = [5000]  # maxIter
-# cfl_adption = ["True"]  # value
-# cflAdFactorDown = [0.5]  # factor_down
-# cflAdFactorUp = [1.5]  # factor_up
-# cflMinValue = [0.5]  # min
-# cflMaxValue = [100.0]  # max
-# cfl_value = [1]  # cfl value
-# multiGrid = [3]  # multigridLevel
-# wettedArea = ["True"]  # updateWettedArea
-# extraLoads = ["False"]  # extractLoads
-
-# # Common mesh parameters
-# common_mesh_params = {
-#     "open_gui": open_gmsh_gui,
-#     "type_mesh": type_mesh,
-#     "symmetry": symmetry,
-#     "exportPropellers": export_propellers,
-# }
-
-# # RANS mesh params
-# rans_mesh_params = {
-#     "farfield_factor": farfield_factor,
-#     "number_layer": number_layer,
-#     "height_first_layer": height_first_layer,
-#     "max_thickness_layer": max_thickness_layer,
-#     "growth_ratio": growth_ratio,
-#     "growth_factor": growth_factor,
-#     "feature_angle": feature_angle,
-#     "intake_percent": intake_percent,
-#     "exhaust_percent": exhaust_percent,
-# }
-
-# gmsh_options = {
-#     "gmshOptionsmin_max_mesh_factor": surface_mesh_size,
-#     "gmshOptionsmin_mesh_factor": surface_min_size,
-#     "gmshOptionsmax_mesh_factor": surface_max_size,
-# }
-
-# # SU2 parameters
-# su2_params = {
-#     "aeroMapUID": aeromap_name,
-#     "options/calculateDampingDerivatives": derivatives,
-#     "options/config_type": config_type,
-#     "options/rotationRate": rotation,
-#     "options/calculateControlSurfacesDeflections": control_surfaces,
-#     "options/includeActuatorDisk": includeActuatorDisk,
-#     "settings/nbCPU": cpu,
-#     "settings/maxIter": iters,
-#     "settings/cflNumber/value": cfl_value,
-#     "settings/cflNumber/adaptation/value": cfl_adption,
-#     "settings/cflNumber/adaptation/factor_down": cflAdFactorDown,
-#     "settings/cflNumber/adaptation/factor_up": cflAdFactorUp,
-#     "settings/cflNumber/adaptation/min": cflMinValue,
-#     "settings/cflNumber/adaptation/max": cflMaxValue,
-#     "settings/multigridLevel": multiGrid,
-#     "results/updateWettedArea": wettedArea,
-#     "results/extractLoads": extraLoads,
-# }
-
-
-# tixi = Tixi3()
-# tixi.open(input_cpacs_path)
-
-# try:
-#     # add the new aeroMa
-#     add_new_aeromap(tixi, aeromap2, aeromap_uid, aeromap_name)
-#     rans_update(tixi, aeromap_name, common_mesh_params, rans_mesh_params, gmsh_options, su2_params)
-#     # save the updated CPACS file
-#     tixi.save(input_cpacs_path)
-#     print("RANS parameters updated successfully!")
-# except Exception as e:
-#     print(f"Error updating parameters: {e}")
-# finally:
-#     tixi.close()
-
-
-# input("Press ENTER to continue....")
-
-
-# # LAUNCH RANS COMMAND
-# print("CPACS updated, running GMSH and SU2 Module in CEASIOMpy...")
-# command = (
-#     f"cd {os.path.abspath(directory_path)} && "
-#     f"ceasiompy_run -m {os.path.abspath(input_cpacs_path)} CPACS2GMSH SU2Run"
-# )
-
-# default_third_kriging_dataset_path = (
-#     "/wrk/Gronda/labAR/prove_codice/RANS_dataset_TRAIN_default.csv"
-# )
-# train_third_kriging_dataset_path = None  # Initialize with None
-
-# try:
-#     print("RANS simulation started. Press Ctrl+C to interrupt manually.")
-#     # Run the command with subprocess.run()
-#     result = subprocess.run(command, shell=True, check=True, text=True, capture_output=True)
-
-#     # Check if the process completed successfully
-#     if result.returncode == 0:
-#         print("Simulations completed successfully!")
-#     else:
-#         print("An error occurred during the simulations!")
-# except subprocess.CalledProcessError as e:
-#     print(f"Error occurred during the simulation: {e.stderr}")
-#     # Use the default dataset if there was an error
-#     train_third_kriging_dataset_path = default_third_kriging_dataset_path
-#     result = None  # Ensure result is defined
-# except KeyboardInterrupt:
-#     print("\nSimulation manually interrupted.")
-#     # Manually set to default dataset if interrupted
-#     train_third_kriging_dataset_path = default_third_kriging_dataset_path
-#     result = None  # Ensure result is defined
-
-# # DEFINE the CSV filename for the EULER dataset
-# csv_filename3 = "/wrk/Gronda/labAR/prove_codice/RANS_dataset.csv"
-
-# # PROCESS SIMULATION RESULTS OR USE DEFAULT DATASET
-# if result and result.returncode == 0:
-#     # If the process completed, analyze the results
-#     latest_workflow_path = get_latest_workflow(directory_path)
-#     if latest_workflow_path:
-#         results_path = os.path.join(latest_workflow_path, "Results", "SU2")
-#         print("Latest Workflow:", latest_workflow_path)
-#         print("Results Path:", results_path)
-
-#         if os.path.isdir(results_path):
-#             data3 = extract_coefficients_from_SU2(results_path)
-#             print(data2)
-#             train_third_kriging_dataset_path = append_to_new_csv(data3, csv_filename3)
-#         else:
-#             print(f"Error: The directory {results_path} does not exist.")
-#     else:
-#         print("No workflow found.")
-# else:
-#     # Use the default dataset if the process was interrupted
-#     print(f"Using the default RANS dataset: {default_third_kriging_dataset_path}")
-#     train_third_kriging_dataset_path = default_third_kriging_dataset_path
-
-# input("Press ENTER to continue....")
-
-# # TRAINING FINAL MULTI-FIDELITY KRIGING MODEL
-# print("Training new multi-fidelity surrogate model")
-
-# df3 = load_and_split_data(
-#     train_third_kriging_dataset_path,
-#     default_third_kriging_dataset_path,
-# )
-# print(df3)
-# X3 = df3["dataset"]["X"]
-# y3 = df3["dataset"]["y"]
-# coefficent3 = y3["CL"]
-
-# # # Normalize data
-# # normalized_data3 = normalize_data(df3)
-
-# # Split test and training
-
-# train_test_values3 = test_training_data(X3, coefficent3)
-
-# X_train3 = train_test_values3["X_train"]
-# X_test3 = train_test_values3["X_test"]
-# y_train3 = train_test_values3["y_train"]
-# y_test3 = train_test_values3["y_test"]
-
-# print("Data splitted, now training and evaluating surrogate model")
-# input("Press ENTER to continue....")
-
-# # Train module and predict
-
-# theta3 = [0.01]
-# corr3 = "matern32"
-# poly3 = "constant"
-
-# model3 = MF_Kriging(
-#     X_train1, y_train1, X_train2, y_train2, theta3, corr3, poly3, X_train3, y_train3
-# )
-# predictions3 = predict_mf_model(model3, X_test3, y_test3)
-
-# y_pred3 = predictions3["y_pred"]
-# var3 = predictions3["variance"]
-
-# # RMSE X CONFRONTO
-# rms3 = compute_rms_error(model3, X_test3, y_test3)
-# # aggiungi grafico confronto y e ypred
-
-# print(f"x train: {X_train3}")
-# print(f"x test: {X_test3}")
-# print(f"y test: {y_test3}")
-# print(f"y pred: {y_pred3}")
-# print(f"variance: {var3}")
-
-# print("rmse comparison")
-# print(f"rms first kriging: {rms1}")
-# print(f"rms second kriging: {rms2}")
-# print(f"rms third kriging: {rms3}")
-
-# base_model_name = "surrogate_model"
-# model_extension = ".pkl"
-
-# save_model(model3, directory_path, base_model_name, model_extension)
+save_model(model3, directory_path, base_model_name, model_extension)

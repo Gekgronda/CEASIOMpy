@@ -1107,15 +1107,18 @@ def prediction_metrics_plots(
     return rms, predictions, y_pred, var
 
 
-def high_variance_new_doe(
+def high_variance_new_doe_prove(
+    X,
     var,
     n_samples,
     fraction_of_new_samples,
     X_test,
-    processed_samples,
+    sampled_array,
     ranges,
     output_filename,
     directory_path,
+    physical_domain_limits,
+    iteration_number,
 ):
 
     print("Selecting DOE points with highest variance...")
@@ -1123,25 +1126,41 @@ def high_variance_new_doe(
     sorted_indices = np.argsort(var_flat)[::-1]
     n_new_samples = n_samples // fraction_of_new_samples
     top_n_indices = sorted_indices[:n_new_samples]
-    top_n_X_test = X_test[top_n_indices]
+    top_n_X_test = np.vstack(X_test[top_n_indices])
 
     # Print results
     print(f"Top {n_new_samples} variances: {var_flat[top_n_indices]}")
     print(f"Top {n_new_samples} X_test samples: {top_n_X_test}")
 
-    # Plot DOE highlighting new points
-    plot_doe(
-        processed_samples,
-        ranges,
-        n_samples=n_new_samples,
-        plot_dim1="angleOfAttack",
-        plot_dim2="machNumber",
-        highlight_points=top_n_X_test,
-    )
+    # Filter Mach > 0.7 and extreme values from ranges
+    mach_above_threshold = X[X[:, 1] > 0.7]
+    extreme_values = []
+    for i, (lower, upper) in enumerate(ranges.values()):
+        lower_values = X[X[:, i] == lower]
+        upper_values = X[X[:, i] == upper]
+        extreme_values.append(lower_values)
+        extreme_values.append(upper_values)
+    extreme_values = np.vstack(extreme_values) if extreme_values else np.empty((0, X.shape[1]))
+
+    if iteration_number == 1:
+        # Combine high variance points, Mach > 0.7, and extreme values
+        additional_points = np.vstack([mach_above_threshold, extreme_values])
+
+    elif iteration_number == 2:
+        additional_points = np.vstack([extreme_values])
+
+    new_X = np.vstack([X_test[top_n_indices], additional_points])
+
+    print(f"New aeromap with high variance and additional points: {top_n_X_test}")
 
     input("Press ENTER to continue: ")
 
-    new_aeromap = {key: top_n_X_test[:, idx] for idx, key in enumerate(ranges.keys())}
+    new_aeromap = {key: new_X[:, idx] for idx, key in enumerate(ranges.keys())}
+
+    # Convert back to array for plotting
+    new_aeromap_array = np.column_stack([new_aeromap[key] for key in ranges.keys()])
+
+    print("New aeromap with high variance points:")
 
     for key, value in new_aeromap.items():
         print(f"{key}: {value}")
@@ -1149,7 +1168,7 @@ def high_variance_new_doe(
     full_path = os.path.join(directory_path, output_filename)
     save_to_csv(new_aeromap, full_path)
 
-    return new_aeromap, full_path
+    return new_aeromap, full_path, new_aeromap_array
 
 
 def launch_SU2_simulations(
@@ -1219,8 +1238,10 @@ def launch_SU2_simulations(
 
 
 def su2_workflow(
+    fidelity_level,
     input_cpacs_path,
     directory_path,
+    selected_paths,
     default_kriging_dataset_path,
     full_path,
     aeromap,
@@ -1232,61 +1253,117 @@ def su2_workflow(
     gmsh_options=None,
 ):
 
-    print("Do you want to proceed with SU2 simulations? [default: NO]")
-    print("If YES: proceed with SU2 configuration")
-    print("If NO: insert file.csv to train Multi-Fidelity Kriging")
-    su2_yes_or_not = input(": ") or "NO"
+    if su2_params["options/config_type"] is "Euler":
 
-    if su2_yes_or_not.upper() == "YES":
-        print("Updating aeromap and reference value for SU2 simulations")
-        input("Press ENTER to continue....")
+        if selected_paths["second_dataset_path"] is None:
+            print("Updating aeromap and reference value for SU2 Euler simulations")
+            input("Press ENTER to continue....")
 
-        # Aeromap updating on CPACS
-        tixi = Tixi3()
-        tixi.open(input_cpacs_path)
+            # Aeromap updating on CPACS
+            tixi = Tixi3()
+            tixi.open(input_cpacs_path)
 
-        try:
-            # add the new aeroMa
-            add_new_aeromap(tixi, aeromap, aeromap_uid, aeromap_name)
-            # save the updated CPACS file
-            tixi.save(input_cpacs_path)
-            print("New aeroMap added successfully!")
-        except Exception as e:
-            print(f"Error adding aeroMap: {e}")
-        finally:
-            tixi.close()
+            try:
+                # add the new aeroMa
+                add_new_aeromap(tixi, aeromap, aeromap_uid, aeromap_name)
+                # save the updated CPACS file
+                tixi.save(input_cpacs_path)
+                print("New aeroMap added successfully!")
+            except Exception as e:
+                print(f"Error adding aeroMap: {e}")
+            finally:
+                tixi.close()
 
-        # SU2 updating on CPACS
-        print("Updating parameters for SU2 simulations")
-        input("Press ENTER to continue....")
+            # SU2 updating on CPACS
+            print("Updating parameters for SU2 simulations")
+            input("Press ENTER to continue....")
 
-        tixi = Tixi3()
-        tixi.open(input_cpacs_path)
+            tixi = Tixi3()
+            tixi.open(input_cpacs_path)
 
-        try:
-            # Euler update
-            SU2_update(tixi, aeromap_name, common_mesh_params, su2_mesh_params, su2_params)
-            # save the updated CPACS file
-            tixi.save(input_cpacs_path)
-            print("SU2 parameters updated successfully!")
-        except Exception as e:
-            print(f"Error updating parameters: {e}")
-        finally:
-            tixi.close()
+            try:
+                # Euler update
+                SU2_update(tixi, aeromap_name, common_mesh_params, su2_mesh_params, su2_params)
+                # save the updated CPACS file
+                tixi.save(input_cpacs_path)
+                print("SU2 parameters updated successfully!")
+            except Exception as e:
+                print(f"Error updating parameters: {e}")
+            finally:
+                tixi.close()
 
-        input("Press ENTER to continue....")
+            input("Press ENTER to continue....")
 
-        # Obtain path of train dataset
-        kriging_dataset_path = launch_SU2_simulations(
-            default_kriging_dataset_path, directory_path, input_cpacs_path, full_path
+            # Obtain path of train dataset
+            kriging_dataset_path = launch_SU2_simulations(
+                default_kriging_dataset_path, directory_path, input_cpacs_path, full_path
+            )
+
+            selected_paths["second_dataset_path"] = kriging_dataset_path
+
+    elif su2_params["options/config_type"] is "RANS":
+
+        if selected_paths["third_dataset_path"] is None:
+            print("Updating aeromap and reference value for SU2 RANS simulations")
+            input("Press ENTER to continue....")
+
+            # Aeromap updating on CPACS
+            tixi = Tixi3()
+            tixi.open(input_cpacs_path)
+
+            try:
+                # add the new aeroMa
+                add_new_aeromap(tixi, aeromap, aeromap_uid, aeromap_name)
+                # save the updated CPACS file
+                tixi.save(input_cpacs_path)
+                print("New aeroMap added successfully!")
+            except Exception as e:
+                print(f"Error adding aeroMap: {e}")
+            finally:
+                tixi.close()
+
+            # SU2 updating on CPACS
+            print("Updating parameters for SU2 simulations")
+            input("Press ENTER to continue....")
+
+            tixi = Tixi3()
+            tixi.open(input_cpacs_path)
+
+            try:
+                # Euler update
+                SU2_update(tixi, aeromap_name, common_mesh_params, su2_mesh_params, su2_params)
+                # save the updated CPACS file
+                tixi.save(input_cpacs_path)
+                print("SU2 parameters updated successfully!")
+            except Exception as e:
+                print(f"Error updating parameters: {e}")
+            finally:
+                tixi.close()
+
+            input("Press ENTER to continue....")
+
+            # Obtain path of train dataset
+            kriging_dataset_path = launch_SU2_simulations(
+                default_kriging_dataset_path, directory_path, input_cpacs_path, full_path
+            )
+
+            selected_paths["third_dataset_path"] = kriging_dataset_path
+
+    return selected_paths
+
+
+def select_or_give_dataset(fl, fw):
+
+    if fl == 1:
+        print(
+            f"Do you want to choose the initial DOE and run {fw} simulations or you want to manually insert the dataset to train surrogate model?"
         )
+        print(f"Enter YES if you want to choose the initial DOE and run {fw} simulations")
+        print("Enter NO if you want to manually insert the dataset to train surrogate model")
+        print("[default NO]")
+        define_doe_or_default = (input(": ") or "NO").strip().upper()
 
-    else:
-
-        kriging_dataset_path = input("Insert file.csv path: ")
-
-        if not kriging_dataset_path:  # Use default path if no path is provided
-            print(f"No path given. Using default path: {default_kriging_dataset_path}")
-            kriging_dataset_path = default_kriging_dataset_path
-
-    return kriging_dataset_path
+    elif fl == 2:
+        define_doe_or_default = (
+            print("Do you want to select manually DOE points (YES, NO)? [default: NO]: ") or "NO"
+        )
