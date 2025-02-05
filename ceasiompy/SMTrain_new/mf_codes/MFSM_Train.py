@@ -34,9 +34,9 @@ from MFSM_Func import (
     plot_response_surface,
     save_model,
     sm_workflow,
+    su2_workflow,
 )
 
-from prove import su2_workflow
 from sklearn.preprocessing import MinMaxScaler
 from smt.utils.misc import compute_rms_error
 
@@ -46,7 +46,6 @@ from smt.utils.misc import compute_rms_error
 # - CONFRONTO DOE CON DOMINIO FISICO da migliorare
 # - CONTROLLARE REFERENCE VALUES
 # - FRAZIONE PER LE RANS
-# - AGGIUNGERE CAMPIONI ALTA FEDELTA SUI BORDI
 # - I DEFAULT VANNO TOLTI E ANCHE DALLE FUNZIONI!
 
 
@@ -58,7 +57,7 @@ cpacs_directory = "/home/cfse/Stage_Gronda/CEASIOMpy/test_files/CPACSfiles"
 directory_path = "/wrk/Gronda/validazione/mengmeng"
 default_doe_path = "/wrk/Gronda/validazione/mengmeng/AVL.csv"
 default_first_kriging_dataset_path = "/wrk/Gronda/validazione/mengmeng/AVL_TRAIN.csv"
-default_second_kriging_dataset_path = "/wrk/Gronda/validazione/mengmeng/EULER_TRAIN.csv"
+default_second_kriging_dataset_path = "/wrk/Gronda/validazione/mengmeng/EULER_TRAIN_N.csv"
 default_third_kriging_dataset_path = None
 # input_cpacs_name = "labARscaled.xml"
 # directory_path = "/wrk/Gronda/labAR/prove_codice"
@@ -71,7 +70,7 @@ output_filename_lhs = "LHS_dataset.csv"
 
 # pysical domain limits
 p1, p2, p3, p4 = [-5, 0.5], [-3, 0.9], [4, 0.9], [15, 0.5]
-p1, p2, p3, p4 = [-5, 0.1], [-3, 0.9], [4, 0.9], [15, 0.1]
+# p1, p2, p3, p4 = [-5, 0.1], [-3, 0.9], [4, 0.9], [15, 0.1]
 
 
 physical_domain_limits = {"p1": p1, "p2": p2, "p3": p3, "p4": p4}
@@ -112,11 +111,11 @@ avl_parameters = {
 
 theta1 = [0.01]
 corr1 = "squar_exp"
-poly1 = "constant"
+poly1 = "linear"
 selected_mach_for_aoa_plot = [0.5, 0.8, 0.9]
 altitude_for_response_surface = 10000
 aos_for_response_surface = 0
-fraction_of_new_samples = 5
+fraction_of_new_samples = 10
 
 # Name of the output dataset
 output_filename_euler = "EULER_dataset.csv"
@@ -219,11 +218,11 @@ euler_su2_params = {
 
 ## M-F KRIGING OPTIONS
 
-theta2 = [0.01]
+theta2 = [0.001]
 corr2 = "squar_exp"
-poly2 = "constant"
+poly2 = "quadratic"
 
-fraction_of_new_samples2 = 5
+fraction_of_new_samples2 = 8
 
 # Name of the output dataset
 output_filename_rans = "RANS_dataset.csv"
@@ -404,7 +403,6 @@ if fidelity_level >= 1:
         full_path2,
         which_coefficent1,
         model1,
-        rms1,
         X1,
         y1,
         X_train1,
@@ -429,6 +427,12 @@ if fidelity_level >= 1:
         model_extension=model_extension,
         output_filename=output_filename_euler,
     )
+
+    # print(X1)
+    # print(X1.shape())
+
+    # print(y1)
+    # print(y1.shape())
 
 
 if fidelity_level >= 2:
@@ -476,7 +480,6 @@ if fidelity_level >= 2:
         full_path3,
         which_coefficent2,
         model2,
-        rms2,
         X2,
         y2,
         X_train2,
@@ -554,7 +557,6 @@ if fidelity_level >= 3:
         full_path4,
         which_coefficent3,
         model3,
-        rms3,
         X3,
         y3,
         X_train3,

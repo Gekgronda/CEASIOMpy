@@ -179,14 +179,28 @@ def get_user_inputs():
         "angleOfSideslip": [0, 0],
     }
 
-    try:
-        # Prompt user for the number of samples
-        n_samples_input = input(f"Enter the number of samples (default: {default_samples}): ")
-        n_samples = int(n_samples_input) if n_samples_input.strip() else default_samples
+    while True:  # Loop until valid input is provided
+        try:
+            # Prompt user for the number of samples
+            n_samples_input = input(
+                f"Enter the number of samples, min value: 2 (default: {default_samples}): "
+            )
+            if not n_samples_input.strip():  # Use default if input is empty
+                n_samples = default_samples
+                break
+            n_samples = int(n_samples_input)
+            if n_samples < 2:
+                print("The number of samples must be at least 2. Please try again.")
+            else:
+                break
+        except ValueError:
+            print("Invalid input. Please enter a valid integer.")
 
-        print("Enter the range for each dimension (press Enter to use default values):")
-        ranges = {}
-        for key, default_range in default_ranges.items():
+    print("Enter the range for each dimension (press Enter to use default values):")
+    ranges = {}
+
+    for key, default_range in default_ranges.items():
+        while True:  # Loop until valid range is provided
             try:
                 min_input = input(f"Minimum {key} (default: {default_range[0]}): ")
                 max_input = input(f"Maximum {key} (default: {default_range[1]}): ")
@@ -199,13 +213,11 @@ def get_user_inputs():
                     raise ValueError(f"Minimum value cannot be greater than maximum for '{key}'.")
 
                 ranges[key] = [min_value, max_value]
+                break  # Exit the loop once a valid range is provided
             except ValueError as ve:
-                print(f"Invalid input for {key}: {ve}. Using default range {default_range}.")
-                ranges[key] = default_range
+                print(f"Invalid input for {key}: {ve}. Please try again.")
 
-        return n_samples, ranges
-    except ValueError as e:
-        raise ValueError(f"Invalid input for the number of samples: {e}")
+    return n_samples, ranges
 
 
 def lh_sampling(ranges, n_samples, physical_domain_limits, random_state=None):
@@ -913,8 +925,6 @@ def prepare_data(kriging_dataset_path, coefficent_to_predict=None):
     X = df["dataset"]["X"]
     y = df["dataset"]["y"]
 
-    print(X)
-
     # Select coefficient to predict
     which_coefficent = select_coefficient_to_predict(y, coefficent_to_predict)
 
@@ -939,8 +949,13 @@ def prepare_data(kriging_dataset_path, coefficent_to_predict=None):
 
 def Kriging(X_train, y_train, theta, corr, poly):
     """Train Kriging model."""
+
+    # Identify non-constant columns
+    non_constant_cols = np.any(X_train != X_train[0], axis=0)
+    X_train_filtered = X_train[:, non_constant_cols]
+
     model = KRG(theta0=theta, corr=corr, poly=poly, print_global=False)
-    model.set_training_values(X_train, y_train)
+    model.set_training_values(X_train_filtered, y_train)
     model.train()
     return model
 
@@ -961,21 +976,38 @@ def MF_Kriging(Xt_lf, yt_lf, Xt_mf, yt_mf, theta, corr, poly, Xt_hf=None, yt_hf=
     Returns:
         MFK: Trained Kriging model.
     """
+
+    # Identify non-constant columns
+    non_constant_cols = np.any(Xt_lf != Xt_lf[0], axis=0)
+    Xt_lf_filtered = Xt_lf[:, non_constant_cols]
+
+    non_constant_cols = np.any(Xt_lf != Xt_lf[0], axis=0)
+    Xt_lf_filtered = Xt_lf[:, non_constant_cols]
+
     # Create the Kriging model
-    model = MFKPLSK(
-        theta0=theta, theta_bounds=[1e-06, 100.0], corr=corr, poly=poly, hyper_opt="TNC"
-    )
+    model = MFK(theta0=theta, theta_bounds=[1e-06, 100.0], corr=corr, poly=poly, hyper_opt="TNC")
 
     # Add high-fidelity data if provided
     if Xt_hf is None and yt_hf is None:
+
+        non_constant_cols = np.any(Xt_mf != Xt_mf[0], axis=0)
+        Xt_mf_filtered = Xt_mf[:, non_constant_cols]
+
         # Set training values for the fidelity levels
-        model.set_training_values(Xt_lf, yt_lf, name=0)  # Low-fidelity
-        model.set_training_values(Xt_mf, yt_mf)  # Mid-fidelity
+        model.set_training_values(Xt_lf_filtered, yt_lf, name=0)  # Low-fidelity
+        model.set_training_values(Xt_mf_filtered, yt_mf)  # Mid-fidelity
     else:
+
+        non_constant_cols = np.any(Xt_mf != Xt_mf[0], axis=0)
+        Xt_mf_filtered = Xt_mf[:, non_constant_cols]
+
+        non_constant_cols = np.any(Xt_hf != Xt_hf[0], axis=0)
+        Xt_hf_filtered = Xt_hf[:, non_constant_cols]
+
         # Set training values for the fidelity levels
-        model.set_training_values(Xt_lf, yt_lf, name=0)  # Low-fidelity
-        model.set_training_values(Xt_mf, yt_mf, name=1)  # Mid-fidelity
-        model.set_training_values(Xt_hf, yt_hf)  # High-fidelity without a name
+        model.set_training_values(Xt_lf_filtered, yt_lf, name=0)  # Low-fidelity
+        model.set_training_values(Xt_mf_filtered, yt_mf, name=1)  # Mid-fidelity
+        model.set_training_values(Xt_hf_filtered, yt_hf)  # High-fidelity without a name
 
     # Train the model
     model.train()
@@ -1020,11 +1052,18 @@ def MF_CoKriging(X_lf, y_lf, X_mf, y_mf, X_hf_train=None, y_hf_train=None):
 
 
 # Funzione per fare previsioni con Kriging
-def predict_model(model, X_test, y_test):
+def predict_model(model, X_test, y_test=None):
     """Make predictions"""
-    y_pred = model.predict_values(X_test)
-    var = model.predict_variances(X_test)
-    print("Kriging,  err: " + str(compute_rms_error(model, X_test, y_test)))
+
+    # Identify non-constant columns
+    non_constant_cols = np.any(X_test != X_test[0], axis=0)
+    X_test_filtered = X_test[:, non_constant_cols]
+
+    print(f"X_test_filtered: {X_test_filtered}")
+
+    y_pred = model.predict_values(X_test_filtered)
+    var = model.predict_variances(X_test_filtered)
+    print("Kriging, rms err: " + str(compute_rms_error(model, X_test_filtered, y_test)))
 
     # Value of theta
     print("theta values", model.optimal_theta)
@@ -1128,12 +1167,11 @@ def prediction_metrics_plots(
 ):
 
     # Prediction and metrics
-    rms = compute_rms_error(model, X_test, y_test)
     predictions = predict_model(model, X_test, y_test)
     y_pred = predictions["y_pred"]
     var = predictions["variance"]
 
-    print(f"RMS Error: {rms}")
+    input("Press ENTER to continue: ")
 
     # Plot validation and response surfaces
     plot_validation(y_test, y_pred, which_coefficent)
@@ -1168,7 +1206,7 @@ def prediction_metrics_plots(
         y_MF=y_MF,
     )
 
-    return rms, predictions, y_pred, var
+    return predictions, y_pred, var
 
 
 def high_variance_new_doe_pippi(
@@ -1233,45 +1271,79 @@ def high_variance_new_doe(
     sorted_indices = np.argsort(var_flat)[::-1]
     n_new_samples = n_samples // fraction_of_new_samples
     top_n_indices = sorted_indices[:n_new_samples]
-    top_n_X_test = np.vstack(X_test[top_n_indices])
+    top_n_X_test = X_test[top_n_indices]
 
-    # Print results
     print(f"Top {n_new_samples} variances: {var_flat[top_n_indices]}")
     print(f"Top {n_new_samples} X_test samples: {top_n_X_test}")
 
-    # Filter points with Mach > 0.7
-    mach_above_threshold = X[X[:, 1] >= 0.7]
+    # Extract physical domain limits for AoA and Mach
+    p1, p2, p3, p4 = (
+        physical_domain_limits["p1"],
+        physical_domain_limits["p2"],
+        physical_domain_limits["p3"],
+        physical_domain_limits["p4"],
+    )
 
-    # Generate all combinations of min and max values for the ranges
+    # Compute line equations y = m*x + c
+    m1, c1 = np.polyfit([p1[0], p2[0]], [p1[1], p2[1]], 1)
+    m2, c2 = np.polyfit([p3[0], p4[0]], [p3[1], p4[1]], 1)
+
+    # Generate extreme values for altitude and AoS
     range_bounds = [
-        list(bound) for bound in ranges.values()
-    ]  # Convert ranges to list of [min, max]
+        list(bound) for key, bound in ranges.items() if key not in ["machNumber", "angleOfAttack"]
+    ]
     extreme_values = np.array(list(itertools.product(*range_bounds)))
+    extreme_values = np.column_stack(
+        [
+            extreme_values[:, 0],
+            np.full((extreme_values.shape[0], 1), p1[1]),
+            np.full((extreme_values.shape[0], 1), p1[0]),
+            extreme_values[:, 1],
+        ]
+    )
 
+    # Filter top_n_X_test to be within physical domain
+    valid_mask = (
+        (p1[0] <= top_n_X_test[:, 2])
+        & (top_n_X_test[:, 2] <= p4[0])
+        & (p1[1] <= top_n_X_test[:, 1])
+        & (top_n_X_test[:, 1] <= p2[1])
+        & (top_n_X_test[:, 1] <= m1 * top_n_X_test[:, 2] + c1)
+        & (top_n_X_test[:, 1] <= m2 * top_n_X_test[:, 2] + c2)
+    )
+    filtered_top_n_X_test = top_n_X_test[valid_mask]
+
+    # Filter Mach > 0.7 and ensure it is within the physical domain
+    mach_above_threshold = X[(X[:, 1] >= 0.7) & (X[:, 2] >= p1[0]) & (X[:, 2] <= p4[0])]
+    mach_above_threshold = mach_above_threshold[
+        (mach_above_threshold[:, 1] <= m1 * mach_above_threshold[:, 2] + c1)
+        & (mach_above_threshold[:, 1] <= m2 * mach_above_threshold[:, 2] + c2)
+    ]
+
+    # Ensure correct concatenation of arrays
+    additional_points = []
     if iteration_number == 1:
-        # Combine high variance points, Mach >= 0.7, and extreme values
-        additional_points = np.vstack([mach_above_threshold, extreme_values])
+        additional_points.append(mach_above_threshold)
+        additional_points.append(extreme_values)
     elif iteration_number == 2:
-        # Use only the extreme values
-        additional_points = extreme_values
+        additional_points.append(extreme_values)
+
+    if additional_points:
+        additional_points = np.vstack([arr for arr in additional_points if arr.size > 0])
+    else:
+        additional_points = np.empty((0, X.shape[1]))
+
+    print(f"add: {additional_points}")
+    print(f"filt: {filtered_top_n_X_test}")
 
     # Combine all points
-    combined_points = np.vstack([top_n_X_test, additional_points])
+    combined_points = np.vstack([filtered_top_n_X_test, additional_points])
+    new_X_no_phys = np.unique(combined_points, axis=0)
 
-    # Remove duplicate points
-    new_X = np.unique(combined_points, axis=0)
-
-    print(f"new_X: {new_X}")
-
-    input("Press ENTER to continue: ")
-
-    new_aeromap = {key: new_X[:, idx] for idx, key in enumerate(ranges.keys())}
-
-    # Convert back to array for plotting
+    new_aeromap = {key: new_X_no_phys[:, idx] for idx, key in enumerate(ranges.keys())}
     new_aeromap_array = np.column_stack([new_aeromap[key] for key in ranges.keys()])
 
     print("New aeromap with high variance and additional points:")
-
     for key, value in new_aeromap.items():
         print(f"{key}: {value}")
 
@@ -1329,7 +1401,7 @@ def sm_workflow(
             print(f"Training surrogate model...")
             model = Kriging(X_train, y_train, theta, corr, poly)
             # Prediction metrics and graphs
-            rms, prediction, y_pred, var = prediction_metrics_plots(
+            prediction, y_pred, var = prediction_metrics_plots(
                 model,
                 X_test,
                 y_test,
@@ -1349,25 +1421,38 @@ def sm_workflow(
     if fidelity_level >= 2:
         # First iteration
         if iteration_number == 1:
-            if selected_paths_updated["second_dataset_path"] is None:
-                new_aeromap, full_path, new_aeromap_array = high_variance_new_doe(
-                    X,
-                    var,
-                    n_samples,
-                    fraction_of_new_samples,
-                    X_test,
-                    sampled_array,
-                    ranges,
-                    output_filename,
-                    directory_path,
-                    physical_domain_limits,
-                    iteration_number,
-                )
-            else:
-                new_aeromap, full_path = None, None
-                aeromap_path = selected_paths_updated["second_dataset_path"]
-                df = pd.read_csv(aeromap_path)
-                new_aeromap_array = df.iloc[:, :4].to_numpy()
+            new_aeromap, full_path, new_aeromap_array = high_variance_new_doe(
+                X,
+                var,
+                n_samples,
+                fraction_of_new_samples,
+                X_test,
+                sampled_array,
+                ranges,
+                output_filename,
+                directory_path,
+                physical_domain_limits,
+                iteration_number,
+            )
+        # if selected_paths_updated["second_dataset_path"] is None:
+        #     new_aeromap, full_path, new_aeromap_array = high_variance_new_doe(
+        #         X,
+        #         var,
+        #         n_samples,
+        #         fraction_of_new_samples,
+        #         X_test,
+        #         sampled_array,
+        #         ranges,
+        #         output_filename,
+        #         directory_path,
+        #         physical_domain_limits,
+        #         iteration_number,
+        #     )
+        # else:
+        #     new_aeromap, full_path = None, None
+        #     aeromap_path = selected_paths_updated["second_dataset_path"]
+        #     df = pd.read_csv(aeromap_path)
+        #     new_aeromap_array = df.iloc[:, :4].to_numpy()
 
         if iteration_number == 2:
             # Second iteration
@@ -1381,7 +1466,7 @@ def sm_workflow(
             print("Training final multi fidelity surrogate model...")
             model = MF_Kriging(X_train_LF, y_train_LF, X_train, y_train, theta, corr, poly)
             # Prediction metrics and graphs
-            rms, prediction, y_pred, var = prediction_metrics_plots(
+            prediction, y_pred, var = prediction_metrics_plots(
                 model,
                 X_test,
                 y_test,
@@ -1435,7 +1520,7 @@ def sm_workflow(
                 X_train_LF, y_train_LF, X_train_MF, y_train_MF, theta, corr, poly, X_train, y_train
             )
             # Prediction metrics and graphs
-            rms, prediction, y_pred, var = prediction_metrics_plots(
+            prediction, y_pred, var = prediction_metrics_plots(
                 model,
                 X_test,
                 y_test,
@@ -1467,12 +1552,195 @@ def sm_workflow(
         full_path,
         which_coefficent,
         model,
-        rms,
         X,
         coefficent,
         X_train,
         y_train,
     )
+
+
+# ================== SU2 WORKFLOW ==============
+
+
+def launch_SU2_simulations(
+    default_kriging_dataset_path, directory_path, input_cpacs_path, full_path
+):
+
+    kriging_dataset_path = None  # Initialize with None
+
+    # Launch SU2
+    print("CPACS updated, running GMSH and SU2 Module in CEASIOMpy...")
+    command = (
+        f"cd {os.path.abspath(directory_path)} && "
+        f"ceasiompy_run -m {os.path.abspath(input_cpacs_path)} CPACS2GMSH SU2Run"
+    )
+
+    try:
+        print("Simulations started. Press Ctrl+C to interrupt manually.")
+        # Run the command with subprocess.run()
+        result = subprocess.run(
+            command,
+            shell=True,
+            check=True,
+            text=True,
+            stdout=sys.stdout,  # Forward standard output to the terminal
+            stderr=sys.stderr,  # Forward standard error to the terminal
+        )
+
+        # Check if the process completed successfully
+        if result.returncode == 0:
+            print("Simulations completed successfully!")
+        else:
+            print("An error occurred during the simulations!")
+    except subprocess.CalledProcessError as e:
+        print(f"Error occurred during the simulation: {e}")
+        # Use the default dataset if there was an error
+        kriging_dataset_path = default_kriging_dataset_path
+        result = None  # Ensure result is defined
+    except KeyboardInterrupt:
+        print("\nSimulation manually interrupted.")
+        # Manually set to default dataset if interrupted
+        kriging_dataset_path = default_kriging_dataset_path
+        result = None  # Ensure result is defined
+
+    # PROCESS SIMULATION RESULTS OR USE DEFAULT DATASET
+    if result and result.returncode == 0:
+        # If the process completed, analyze the results
+        latest_workflow_path = get_latest_workflow(directory_path)
+        if latest_workflow_path:
+            results_path = os.path.join(latest_workflow_path, "Results", "SU2")
+            print("Latest Workflow:", latest_workflow_path)
+            print("Results Path:", results_path)
+
+            if os.path.isdir(results_path):
+                data = extract_coefficients_from_SU2(results_path)
+                print(data)
+                kriging_dataset_path = append_to_new_csv(data, full_path)
+            else:
+                print(f"Error: The directory {results_path} does not exist.")
+        else:
+            print("No workflow found.")
+    else:
+        # Use the default dataset if the process was interrupted
+        print(f"Using the default Euler dataset: {default_kriging_dataset_path}")
+        kriging_dataset_path = default_kriging_dataset_path
+
+    return kriging_dataset_path
+
+
+def su2_workflow(
+    fidelity_level,
+    input_cpacs_path,
+    directory_path,
+    selected_paths,
+    default_kriging_dataset_path,
+    full_path,
+    aeromap,
+    aeromap_uid,
+    aeromap_name,
+    common_mesh_params,
+    su2_mesh_params,
+    su2_params,
+    gmsh_options=None,
+):
+
+    if su2_params["options/config_type"] == "Euler":
+
+        if selected_paths["second_dataset_path"] is None:
+            print("Updating aeromap and reference value for SU2 Euler simulations")
+            input("Press ENTER to continue....")
+
+            # Aeromap updating on CPACS
+            tixi = Tixi3()
+            tixi.open(input_cpacs_path)
+
+            try:
+                # add the new aeroMa
+                add_new_aeromap(tixi, aeromap, aeromap_uid, aeromap_name)
+                # save the updated CPACS file
+                tixi.save(input_cpacs_path)
+                print("New aeroMap added successfully!")
+            except Exception as e:
+                print(f"Error adding aeroMap: {e}")
+            finally:
+                tixi.close()
+
+            # SU2 updating on CPACS
+            print("Updating parameters for SU2 simulations")
+            input("Press ENTER to continue....")
+
+            tixi = Tixi3()
+            tixi.open(input_cpacs_path)
+
+            try:
+                # Euler update
+                SU2_update(tixi, aeromap_name, common_mesh_params, su2_mesh_params, su2_params)
+                # save the updated CPACS file
+                tixi.save(input_cpacs_path)
+                print("SU2 parameters updated successfully!")
+            except Exception as e:
+                print(f"Error updating parameters: {e}")
+            finally:
+                tixi.close()
+
+            input("Press ENTER to continue....")
+
+            # Obtain path of train dataset
+            kriging_dataset_path = launch_SU2_simulations(
+                default_kriging_dataset_path, directory_path, input_cpacs_path, full_path
+            )
+
+            selected_paths["second_dataset_path"] = kriging_dataset_path
+
+    elif su2_params["options/config_type"] == "RANS":
+
+        if selected_paths["third_dataset_path"] is None:
+            print("Updating aeromap and reference value for SU2 RANS simulations")
+            input("Press ENTER to continue....")
+
+            # Aeromap updating on CPACS
+            tixi = Tixi3()
+            tixi.open(input_cpacs_path)
+
+            try:
+                # add the new aeroMa
+                add_new_aeromap(tixi, aeromap, aeromap_uid, aeromap_name)
+                # save the updated CPACS file
+                tixi.save(input_cpacs_path)
+                print("New aeroMap added successfully!")
+            except Exception as e:
+                print(f"Error adding aeroMap: {e}")
+            finally:
+                tixi.close()
+
+            # SU2 updating on CPACS
+            print("Updating parameters for SU2 simulations")
+            input("Press ENTER to continue....")
+
+            tixi = Tixi3()
+            tixi.open(input_cpacs_path)
+
+            try:
+                # Euler update
+                SU2_update(tixi, aeromap_name, common_mesh_params, su2_mesh_params, su2_params)
+                # save the updated CPACS file
+                tixi.save(input_cpacs_path)
+                print("SU2 parameters updated successfully!")
+            except Exception as e:
+                print(f"Error updating parameters: {e}")
+            finally:
+                tixi.close()
+
+            input("Press ENTER to continue....")
+
+            # Obtain path of train dataset
+            kriging_dataset_path = launch_SU2_simulations(
+                default_kriging_dataset_path, directory_path, input_cpacs_path, full_path
+            )
+
+            selected_paths["third_dataset_path"] = kriging_dataset_path
+
+    return selected_paths
 
 
 # =================== SAVE MODEL ===============
@@ -1570,31 +1838,45 @@ def plot_response_surface(
     AoA_filtered = AoA[mask]
     Mach_filtered = Mach[mask]
 
+    altitude_values = np.unique(X[:, 0])  # Ottieni i 3 valori distinti di altitudine
+    aos_values = np.unique(X[:, 3])  # Ottieni i 3 valori distinti di AoS
+
     # Reshape the filtered grid into a list of points for prediction
-    X_pred = np.column_stack(
+    X_pred = np.array(
         [
-            np.full(AoA_filtered.size, altitude),  # Altitude
-            Mach_filtered,  # Mach values
-            AoA_filtered,  # AoA values
-            np.full(AoA_filtered.size, aos),  # AoS
+            [alt, mach, aoa, aos]
+            for alt in altitude_values
+            for mach, aoa in zip(Mach_filtered, AoA_filtered)
+            for aos in aos_values
         ]
     )
 
+    print(f"X_pred: {X_pred}")
+
     # Predictions on filtered points
-    predictions = model.predict_values(X_pred)
+    predictions = predict_model(model, X_pred)
 
     # Number of valid points
-    num_points = len(AoA_filtered)
+    num_points = len(X_pred)
+    pred_size = predictions["y_pred"].size
 
     # Verify that the number of predictions matches the number of valid points
-    if num_points != predictions.size:
+    if num_points != pred_size:
         raise ValueError(
-            f"The predictions ({predictions.size}) do not match the number of valid points ({num_points}). "
+            f"The predictions {pred_size} do not match the number of valid points ({num_points}). "
             "Check the grid or physical domain."
         )
 
-    # Create the response surface using an interpolation method
-    coeff_pred_surface = predictions  # Directly use the filtered data
+    # # Create the response surface using an interpolation method
+    # coeff_pred_surface = predictions  # Directly use the filtered data
+
+    # Limit predictions to the DoE range
+    doe_idx = (X[:, 0] == altitude) & (X[:, 3] == aos)
+    doe_coeff = y[doe_idx]
+
+    pred_min = doe_coeff.min()
+    pred_max = doe_coeff.max()
+    predictions = np.clip(predictions["y_pred"], pred_min, pred_max)  # Ensure within DoE range
 
     # Plot the response surface
     fig = plt.figure(figsize=(12, 8))
@@ -1604,20 +1886,20 @@ def plot_response_surface(
     ax.plot_trisurf(
         AoA_filtered,  # Change Mach to AoA
         Mach_filtered,  # Change AoA to Mach
-        coeff_pred_surface.flatten(),
+        predictions.flatten(),
         cmap="viridis",
         alpha=0.5,
         edgecolor="none",
     )
 
-    # Filter DoE points at the selected altitude and AoS
-    doe_idx = (X[:, 0] == altitude) & (X[:, 3] == aos)
-    doe_points = X[doe_idx]
-    doe_coeff = y[doe_idx]
+    # # Filter DoE points at the selected altitude and AoS
+    # doe_idx = (X[:, 0] == altitude) & (X[:, 3] == aos)
+    # doe_points = X[doe_idx]
+    # doe_coeff = y[doe_idx]
 
     ax.scatter(
-        doe_points[:, 2],  # AoA
-        doe_points[:, 1],  # Mach
+        X[doe_idx, 2],  # AoA
+        X[doe_idx, 1],  # Mach
         doe_coeff,  # Coefficients
         color="blue",
         marker="x",
@@ -1632,7 +1914,7 @@ def plot_response_surface(
         # Filter Low-Fidelity DoE points
         lf_doe_idx = (X_LF[:, 0] == altitude) & (X_LF[:, 3] == aos)
         lf_doe_points = X_LF[lf_doe_idx]
-        lf_doe_coeff = y_LF
+        lf_doe_coeff = y_LF[lf_doe_idx]
         # Scatter DoE points
         scatter_lf = ax.scatter(
             lf_doe_points[:, 2],  # AoA of DoE points
@@ -1648,7 +1930,7 @@ def plot_response_surface(
     if X_MF is not None and y_MF is not None:
         mf_doe_idx = (X_MF[:, 0] == altitude) & (X_MF[:, 3] == aos)
         mf_doe_points = X_MF[mf_doe_idx]
-        mf_doe_coeff = y_MF["y_pred"]
+        mf_doe_coeff = y_MF[mf_doe_idx]
         scatter_mf = ax.scatter(
             mf_doe_points[:, 2],  # AoA of MF points
             mf_doe_points[:, 1],  # Mach of MF points
@@ -1661,8 +1943,8 @@ def plot_response_surface(
     # Plot details
     ax.set_xlim(ax.get_xlim()[::-1])
     ax.set_ylim(ax.get_ylim()[::-1])
-    ax.set_xlabel("Mach Number")
-    ax.set_ylabel("Angle of Attack (AoA)")
+    ax.set_xlabel("Angle of Attack (AoA)")
+    ax.set_ylabel("Mach Number")
     ax.set_zlabel(f"{coeff}")
     ax.set_title(f"Response Surface of {coeff} at Altitude = {altitude} m, AoS = {aos}°")
     ax.view_init(elev=25, azim=45)
@@ -1721,15 +2003,14 @@ def plot_coefficent_alpha_for_mach(
     plt.figure(figsize=(10, 6))
 
     # Define colors for each iteration
-    colors = ["black", "blue", "red"]
+    colors = ["black", "blue", "red", "green", "purple"]
 
     # Plot DoE points and lines for reference
     for i, mach in enumerate(selected_mach_numbers):
 
         color = colors[i]
         # Generate grid points
-        aoa_grid = np.linspace(X[:, 2].min(), X[:, 2].max(), 50)  # AoA values
-        print(f"X[:, 2].min(): {X[:, 2].min()}")
+        aoa_grid = np.linspace(X[:, 2].min(), X[:, 2].max(), 200)  # AoA values
         print(f"aoa_grid: {aoa_grid}")
 
         mach_grid = np.full_like(aoa_grid, mach)  # Corresponding Mach values for this grid
@@ -1742,8 +2023,13 @@ def plot_coefficent_alpha_for_mach(
 
         # DoE points (scatter)
         mach_idx = np.isclose(X[:, 1], mach)
-        aoa_doe_values = X[mach_idx, 2]  # AoA for this Mach
-        coef_doe_values = y[mach_idx]  # Coefficient values for this Mach
+        doe_idx = (X[:, 0] == altitude) & (X[:, 3] == aos)
+
+        filtered_idx = mach_idx & doe_idx
+
+        aoa_doe_values = X[filtered_idx, 2]  # AoA per Mach e condizioni
+        coef_doe_values = y[filtered_idx]  # Valori dei coefficienti per Mach e condizioni
+
         plt.scatter(
             aoa_doe_values,
             coef_doe_values,
@@ -1781,20 +2067,33 @@ def plot_coefficent_alpha_for_mach(
                 marker="^",
             )
 
-        pred_points = np.column_stack(
+        altitude_values = np.unique(X[:, 0])  # Ottieni i 3 valori distinti di altitudine
+        aos_values = np.unique(X[:, 3])  # Ottieni i 3 valori distinti di AoS
+
+        # Reshape the filtered grid into a list of points for prediction
+        pred_points = np.array(
             [
-                np.full(aoa_filtered.shape, altitude),  # Altitude
-                np.full(aoa_filtered.shape, mach),  # Mach number
-                aoa_filtered,
-                np.full(aoa_filtered.shape, aos),  # AoS
+                [alt, mach, aoa, aos]
+                for alt in altitude_values
+                for mach in selected_mach_numbers
+                for aoa in aoa_filtered
+                for aos in aos_values
             ]
         )
-        predictions = predict_model(model, pred_points, y_test=None)
+
+        predictions = predict_model(model, pred_points)
         y_pred = predictions["y_pred"]
+
+        # DoE points (scatter)
+        mach_idx = np.isclose(pred_points[:, 1], mach)
+        doe_idx = (pred_points[:, 0] == altitude) & (pred_points[:, 3] == aos)
+
+        filtered_idx = mach_idx & doe_idx
+        prediction = y_pred[filtered_idx]  # Valori dei coefficienti per Mach e condizion
 
         plt.plot(
             aoa_filtered,
-            y_pred,
+            prediction,
             linestyle="-",
             alpha=0.8,
             label=f"Model Prediction Mach = {mach:.2f}",
