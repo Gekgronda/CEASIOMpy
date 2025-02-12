@@ -41,6 +41,8 @@ from sklearn.preprocessing import MinMaxScaler
 from smt.utils.misc import compute_rms_error
 
 # TO DO
+# PER POTER FARE I PLOTTING E NECESSARIO CHE LE ALTITUDINI SIANO IN MIGLIAIA E ANGOLI UNITARI
+# - LE FNZIONI CPACS VANNO RIVISTE X CREARE TUTTA LA STRUTTURA DEL FILE CPACS DA ZERO
 # - AGGIUNGERE IL FATTO CHE LHS NON FACCIA DOPPIONI
 # - SE METTI UN SOLO VALORE PER LHS NON FUNZIONA
 # - CONFRONTO DOE CON DOMINIO FISICO da migliorare
@@ -52,11 +54,24 @@ from smt.utils.misc import compute_rms_error
 # --------------------------------------------------------
 
 ## CPACS FILE and PATHS
-input_cpacs_name = "D150_simple.xml"
+input_cpacs_name = "oneraM6.xml"
 cpacs_directory = "/home/cfse/Stage_Gronda/CEASIOMpy/test_files/CPACSfiles"
+# input_cpacs_name = "00_ToolInput.xml"
+# cpacs_directory = "/wrk/Gronda/validazione/oneraM6/Workflow_003"
+
 directory_path = "/wrk/Gronda/validazione/mengmeng"
+# "/wrk/Gronda/validazione/oneraM6/DOPO_CHIAMATA/"
+
 default_doe_path = "/wrk/Gronda/validazione/mengmeng/AVL.csv"
-default_first_kriging_dataset_path = "/wrk/Gronda/validazione/mengmeng/AVL_TRAIN.csv"
+
+# "/wrk/Gronda/validazione/oneraM6/DOPO_CHIAMATA/LHS_dataset.csv"
+
+default_first_kriging_dataset_path = (
+    "/wrk/Gronda/validazione/mengmeng/AVL_TRAIN.csv"
+    # "/wrk/Gronda/validazione/oneraM6/DOPO_CHIAMATA/LHS_dataset_TRAIN.csv"
+    # None
+)
+
 default_second_kriging_dataset_path = "/wrk/Gronda/validazione/mengmeng/EULER_TRAIN_N.csv"
 default_third_kriging_dataset_path = None
 # input_cpacs_name = "labARscaled.xml"
@@ -107,15 +122,18 @@ avl_parameters = {
 
 # --------------------------------------------------------
 
+
 ## FIRST KRIGING OPTIONS
 
 theta1 = [0.01]
+# corr1 = "matern32"
+# poly1 = "quadratic"
 corr1 = "squar_exp"
-poly1 = "linear"
-selected_mach_for_aoa_plot = [0.5, 0.8, 0.9]
+poly1 = "constant"
+selected_mach_for_aoa_plot = [0.5, 0.8]
 altitude_for_response_surface = 10000
 aos_for_response_surface = 0
-fraction_of_new_samples = 10
+fraction_of_new_samples = 5
 
 # Name of the output dataset
 output_filename_euler = "EULER_dataset.csv"
@@ -138,14 +156,14 @@ symmetry = ["True"]  # symmetry
 # (8.0, 20.0, 4, 2, 2.0, 1.0, 4)
 
 # Parametri mesh Euleriana
-farfield_factor = [8.0]
-mesh_farfield = [20.0]
-fuselage_factor = [4]
-wing_factor = [2]
+farfield_factor = [6.0]
+mesh_farfield = [3.0]
+fuselage_factor = [0.1]
+wing_factor = [5]
 engines = [0.23]
 propellers = [0.23]
 n_power_factor = [2.0]
-n_power_field = [1.0]
+n_power_field = [0.9]
 le_te_layers = [4]
 refine_truncated = ["False"]  # refine_truncated
 auto_refine = ["True"]  # auto_refine
@@ -157,7 +175,7 @@ rotation = [1.0]  # rotationRate
 control_surfaces = ["False"]  # calculateControlSurfacesDeflections
 includeActuatorDisk = ["None;None"]
 cpu = [9]  # nbCPU
-iters = [1500]  # maxIter
+iters = [300]  # maxIter
 cfl_adption = ["True"]  # value
 cflAdFactorDown = [0.5]  # factor_down
 cflAdFactorUp = [1.5]  # factor_up
@@ -220,9 +238,9 @@ euler_su2_params = {
 
 theta2 = [0.001]
 corr2 = "squar_exp"
-poly2 = "quadratic"
+poly2 = "constant"
 
-fraction_of_new_samples2 = 8
+fraction_of_new_samples2 = 5
 
 # Name of the output dataset
 output_filename_rans = "RANS_dataset.csv"
@@ -243,16 +261,16 @@ type_mesh = ["RANS"]  # type_mesh
 symmetry = ["True"]  # symmetry
 
 # parametri mesh RANS
-farfield_factor = [3.0]
-number_layer = [10]
-height_first_layer = [3.0]
+farfield_factor = [6.0]
+number_layer = [15]
+height_first_layer = [44.0]
 max_thickness_layer = [100.0]
 growth_ratio = [1.2]
 growth_factor = [1.4]
 feature_angle = [40]
-surface_mesh_size = [5.0]  # gmshOptionsmin_max_mesh_factor
-surface_max_size = [0.0008]  # DA CREARE:gmshOptionsmax_mesh_factor
-surface_min_size = [0.0002]  # DA CREARE: gmshOptionsmin_mesh_factor
+surface_mesh_size = [120.0]  # gmshOptionsmin_max_mesh_factor
+# surface_max_size = [0.0008]  # DA CREARE:gmshOptionsmax_mesh_factor
+# surface_min_size = [0.0002]  # DA CREARE: gmshOptionsmin_mesh_factor
 intake_percent = [20.0]
 exhaust_percent = [20.0]
 
@@ -263,7 +281,7 @@ rotation = [1.0]  # rotationRate
 control_surfaces = ["False"]  # calculateControlSurfacesDeflections
 includeActuatorDisk = ["None;None"]
 cpu = [9]  # nbCPU
-iters = [5000]  # maxIter
+iters = [400]  # maxIter
 cfl_adption = ["True"]  # value
 cflAdFactorDown = [0.5]  # factor_down
 cflAdFactorUp = [1.5]  # factor_up
@@ -298,8 +316,8 @@ rans_mesh_params = {
 # aggiusta xk ultime due nn esistono
 rans_gmsh_options = {
     "gmshOptionsmin_max_mesh_factor": surface_mesh_size,
-    "gmshOptionsmin_mesh_factor": surface_min_size,
-    "gmshOptionsmax_mesh_factor": surface_max_size,
+    # "gmshOptionsmin_mesh_factor": surface_min_size,
+    # "gmshOptionsmax_mesh_factor": surface_max_size,
 }
 
 # SU2 parameters
@@ -325,6 +343,15 @@ rans_su2_params = {
 
 # -------------------------------------------------------
 
+## M-F KRIGING OPTIONS
+
+theta3 = [0.01]
+corr3 = "squar_exp"
+poly3 = "constant"
+
+
+# --------------------------------------------------------
+
 print("Hai attivato ceasiompy??")
 input("press ENTER to continue")
 
@@ -340,7 +367,10 @@ print(f"CPACS name: {input_cpacs_name}")
 
 # Select how many fidelity level
 fidelity_level, selected_paths = workflow(
-    default_doe_path, default_first_kriging_dataset_path, default_second_kriging_dataset_path
+    default_doe_path,
+    default_first_kriging_dataset_path,
+    default_second_kriging_dataset_path,
+    default_third_kriging_dataset_path,
 )
 
 input("Press ENTER to continue...")
@@ -529,7 +559,7 @@ if fidelity_level >= 3:
 
     # ====== 8. RANS ======
 
-    interation_number = 3
+    iteration_number = 3
 
     selected_paths_updated2 = su2_workflow(
         fidelity_level,
@@ -565,7 +595,6 @@ if fidelity_level >= 3:
         iteration_number,
         selected_paths_updated2,
         directory_path,
-        output_filename_rans,
         theta3,
         corr3,
         poly3,
@@ -576,11 +605,17 @@ if fidelity_level >= 3:
         fidelity_level,
         physical_domain_limits,
         sampled_array,
+        ranges=ranges,
+        sampled_array=sampled_array,
         coefficent_to_predict=which_coefficent2,
-        X_LF=X2,
-        y_LF=y2,
-        X_train_LF=X_train2,
-        y_train_LF=y_train2,
+        X_LF=X1,
+        y_LF=y1,
+        X_train_LF=X_train1,
+        y_train_LF=y_train1,
+        X_MF=X2,
+        y_MF=y2,
+        X_train_MF=X_train2,
+        y_train_MF=y_train2,
         base_model_name=base_model_name,
         model_extension=model_extension,
     )
