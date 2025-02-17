@@ -216,3 +216,6 @@ AVL_AEROMAP_UID_XPATH = AVL_XPATH + "/aeroMapUID"
 AVL_PLOT_XPATH = AVL_XPATH + "/SavePlots"
 AVL_FUSELAGE_XPATH = AVL_XPATH + "/IntegrateFuselage"
 AVL_VORTEX_DISTR_XPATH = AVL_XPATH + "/VortexDistribution"
+
+# MFSM
+MFSMTRAIN_XPATH = CEASIOMPY_XPATH = "/generalModules/mfsmTrain"

@@ -59,20 +59,27 @@ cpacs_directory = "/home/cfse/Stage_Gronda/CEASIOMpy/test_files/CPACSfiles"
 # input_cpacs_name = "00_ToolInput.xml"
 # cpacs_directory = "/wrk/Gronda/validazione/oneraM6/Workflow_003"
 
-directory_path = "/wrk/Gronda/validazione/mengmeng"
-# "/wrk/Gronda/validazione/oneraM6/DOPO_CHIAMATA/"
+directory_path = (
+    "/wrk/Gronda/validazione/oneraM6/DOPO_CHIAMATA/"
+    # "/wrk/Gronda/validazione/oneraM6/DOPO_CHIAMATA"
+)
 
-default_doe_path = "/wrk/Gronda/validazione/mengmeng/AVL.csv"
 
-# "/wrk/Gronda/validazione/oneraM6/DOPO_CHIAMATA/LHS_dataset.csv"
+default_doe_path = (
+    "/wrk/Gronda/validazione/oneraM6/DOPO_CHIAMATA/LHS_dataset.csv"
+    # "/wrk/Gronda/validazione/oneraM6/DOPO_CHIAMATA/LHS_dataset.csv"
+)
 
 default_first_kriging_dataset_path = (
-    "/wrk/Gronda/validazione/mengmeng/AVL_TRAIN.csv"
+    "/wrk/Gronda/validazione/oneraM6/DOPO_CHIAMATA/LHS_dataset_TRAIN.csv"
     # "/wrk/Gronda/validazione/oneraM6/DOPO_CHIAMATA/LHS_dataset_TRAIN.csv"
     # None
 )
 
-default_second_kriging_dataset_path = "/wrk/Gronda/validazione/mengmeng/EULER_TRAIN_N.csv"
+default_second_kriging_dataset_path = (
+    # "/wrk/Gronda/validazione/oneraM6/DOPO_CHIAMATA/EULER_dataset_TRAIN_prova_con_quelli_che_avevo.csv"
+    "/wrk/Gronda/validazione/oneraM6/DOPO_CHIAMATA/EULER_TRAIN.csv"
+)
 default_third_kriging_dataset_path = None
 # input_cpacs_name = "labARscaled.xml"
 # directory_path = "/wrk/Gronda/labAR/prove_codice"
@@ -94,7 +101,7 @@ physical_domain_limits = {"p1": p1, "p2": p2, "p3": p3, "p4": p4}
 # --------------------------------------------------------
 
 ## SAVING OPTIONS
-base_model_name = "surrogate_model_prova1"
+base_model_name = "surrogate_model"
 model_extension = ".pkl"
 
 # --------------------------------------------------------
@@ -130,7 +137,7 @@ theta1 = [0.01]
 # poly1 = "quadratic"
 corr1 = "squar_exp"
 poly1 = "constant"
-selected_mach_for_aoa_plot = [0.5, 0.8]
+selected_mach_for_aoa_plot = [0.3, 0.5, 0.65, 0.7, 0.8, 0.9]
 altitude_for_response_surface = 10000
 aos_for_response_surface = 0
 fraction_of_new_samples = 5
@@ -452,7 +459,6 @@ if fidelity_level >= 1:
         physical_domain_limits,
         fraction_of_new_samples,
         ranges,
-        sampled_array,
         base_model_name=base_model_name,
         model_extension=model_extension,
         output_filename=output_filename_euler,
@@ -471,15 +477,15 @@ if fidelity_level >= 2:
 
     # ====== 4. PLOT NEW DOE ======
 
-    plot_doe(
-        sampled_array,
-        ranges,
-        n_samples,
-        physical_domain_limits,
-        plot_dim1="angleOfAttack",
-        plot_dim2="machNumber",
-        highlight_points=new_aeromap_array1,
-    )
+    # plot_doe(
+    #     sampled_array,
+    #     ranges,
+    #     n_samples,
+    #     physical_domain_limits,
+    #     plot_dim1="angleOfAttack",
+    #     plot_dim2="machNumber",
+    #     highlight_points=new_aeromap_array1,
+    # )
 
     # ====== 5. EULER ======
 
@@ -529,7 +535,6 @@ if fidelity_level >= 2:
         physical_domain_limits,
         fraction_of_new_samples2,
         ranges,
-        sampled_array,
         which_coefficent1,
         X_LF=X1,
         y_LF=y1,
@@ -548,7 +553,7 @@ if fidelity_level >= 3:
     # ====== 7. PLOT NEW DOE ======
 
     plot_doe(
-        sampled_array,
+        X2,
         ranges,
         n_samples,
         physical_domain_limits,
@@ -604,7 +609,6 @@ if fidelity_level >= 3:
         n_samples,
         fidelity_level,
         physical_domain_limits,
-        sampled_array,
         ranges=ranges,
         sampled_array=sampled_array,
         coefficent_to_predict=which_coefficent2,

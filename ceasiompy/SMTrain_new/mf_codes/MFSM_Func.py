@@ -27,6 +27,7 @@ import itertools
 from skopt import gp_minimize
 from skopt.space import Real, Categorical
 import numpy as np
+import time
 
 
 from CPACS_Func import (
@@ -73,77 +74,6 @@ def workflow(
         else:
             print("Invalid input. Please enter 1, 2, or 3.")
 
-    # # Determine whether to follow the default workflow or provide custom paths
-    # workflow = (
-    #     (
-    #         input(
-    #             "Choose whether to follow the workflow proposed by the code (YES) or enter custom dataset paths (NO) [default: NO]: "
-    #         )
-    #         or "NO"
-    #     )
-    #     .strip()
-    #     .upper()
-    # )
-
-    # # Prepare dataset paths
-    # selected_paths = {}
-    # if workflow == "NO":
-    #     # Prompt user for the starting dataset path
-    #     starting_dataset_path = input(
-    #         f"Insert first file.csv path containing points to visualize the DOE [default: {default_starting_dataset_path}]: "
-    #     ).strip()
-    #     if not starting_dataset_path:
-    #         print(f"No valid path provided. Using default: {default_starting_dataset_path}")
-    #         starting_dataset_path = default_starting_dataset_path
-    #     selected_paths["starting_dataset_path"] = starting_dataset_path
-
-    #     # Prompt user for dataset paths based on fidelity level
-    #     if fidelity_level >= 1:
-    #         first_dataset_path = input(
-    #             f"Insert second file.csv path to train the simple surrogate model [default: {default_first_dataset_path}]: "
-    #         ).strip()
-    #         if not first_dataset_path:
-    #             print(f"No valid path provided. Using default: {default_first_dataset_path}")
-    #             first_dataset_path = default_first_dataset_path
-    #         selected_paths["first_dataset_path"] = first_dataset_path
-
-    #     if fidelity_level >= 2:
-    #         second_dataset_path = input(
-    #             f"Insert third file.csv path to train the m-f surrogate model [default: {default_second_dataset_path}]: "
-    #         ).strip()
-    #         if not second_dataset_path:
-    #             print(f"No valid path provided. Using default: {default_second_dataset_path}")
-    #             second_dataset_path = default_second_dataset_path
-    #         selected_paths["second_dataset_path"] = second_dataset_path
-
-    #     if fidelity_level == 3:
-    #         third_dataset_path = input(
-    #             f"Insert fourth file.csv path to train the m-f surrogate model [default: {default_third_dataset_path}]: "
-    #         ).strip()
-    #         if not third_dataset_path:
-    #             print(f"No valid path provided. Using default: {default_third_dataset_path}")
-    #             third_dataset_path = default_third_dataset_path
-    #         selected_paths["third_dataset_path"] = third_dataset_path
-
-    # else:
-    #     # Workflow is "YES" -> Paths should remain empty
-    #     selected_paths["starting_dataset_path"] = None
-    #     if fidelity_level >= 1:
-    #         selected_paths["first_dataset_path"] = None
-    #     if fidelity_level >= 2:
-    #         selected_paths["second_dataset_path"] = None
-    #     if fidelity_level == 3:
-    #         selected_paths["third_dataset_path"] = None
-
-    #         # Prompt user for the starting dataset path
-    #     starting_dataset_path = input(
-    #         f"Insert first file.csv path containing points to visualize the DOE [default: {default_starting_dataset_path}]: "
-    #     ).strip()
-    #     if not starting_dataset_path:
-    #         print(f"No valid path provided. Using default: {default_starting_dataset_path}")
-    #         starting_dataset_path = default_starting_dataset_path
-    #     selected_paths["starting_dataset_path"] = starting_dataset_path
-
     # CAMBIATO, SE UNO INSERISCE I DATASET USA QUELLO SE NO FA LE SIMULAZIONI
     # Prompt user for dataset paths based on fidelity level
     selected_paths = {}
@@ -177,7 +107,7 @@ def workflow(
 
     if fidelity_level == 3:
         third_dataset_path = input(
-            f"Insert fourth file.csv path to train the m-f surrogate model [default: {default_third_dataset_path}]: "
+            f"Insert fourth file.csv path to train the h-f surrogate model [default: {default_third_dataset_path}]: "
         ).strip()
         if not third_dataset_path:
             print(f"No valid path provided. Using default: {default_third_dataset_path}")
@@ -518,7 +448,7 @@ def doe_workflow(selected_paths, directory_path, output_filename, physical_domai
             samples = df.to_dict(orient="list")
 
             # Compute ranges and processed samples
-            ranges = {col: [df[col].min(), df[col].max()] for col in df.columns}
+            ranges = {col: [df[col].min(), df[col].max()] for col in df.columns[:4]}
             sampled_array = df.to_numpy()
             full_path = doe_path
 
@@ -997,7 +927,7 @@ def validate_inputs(data):
     return True
 
 
-def test_training_data(X, y, test_size=0.3, random_state=42):
+def test_training_data(X, y, test_size=0.1, random_state=42):
     """Divide the data into training, validation, and testing sets"""
 
     # Validazione degli input
@@ -1005,11 +935,26 @@ def test_training_data(X, y, test_size=0.3, random_state=42):
     validate_inputs(y)
 
     # Suddivisione dei dati
-    X_train, X_test, y_train, y_test = train_test_split(
+    X_train, X_t, y_train, y_t = train_test_split(
         X, y, test_size=test_size, random_state=random_state
     )
 
-    return {"X_train": X_train, "X_test": X_test, "y_train": y_train, "y_test": y_test}
+    X_val, X_test, y_val, y_test = train_test_split(
+        X_t, y_t, test_size=0.5, random_state=random_state
+    )
+
+    print(f"N of X_train val: {len(X_train)}")
+    print(f"N of X_val val: {len(X_val)}")
+    print(f"N of X_test val: {len(X_test)}")
+
+    return {
+        "X_train": X_train,
+        "X_val": X_val,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_val": y_val,
+        "y_test": y_test,
+    }
 
 
 def select_coefficient_to_predict(y, coefficent_to_predict=None):
@@ -1022,9 +967,12 @@ def select_coefficient_to_predict(y, coefficent_to_predict=None):
         )
 
     if coefficent_to_predict == "CM":
-        coefficent_to_predict = "CMy"
+        coefficent_to_predict == "CMy"
 
-    if coefficent_to_predict not in y:
+    if not isinstance(coefficent_to_predict, str) or coefficent_to_predict not in y:
+        raise ValueError(
+            f"Invalid coefficient name: {coefficent_to_predict}. Available keys: {list(y.keys())}"
+        )
         raise KeyError(
             f"The specified coefficient '{coefficent_to_predict}' is not available in the dataset."
         )
@@ -1047,8 +995,10 @@ def prepare_data(kriging_dataset_path, coefficent_to_predict=None):
     # Split data into training and test sets
     train_test_values = test_training_data(X, coefficent)
     X_train = train_test_values["X_train"]
+    X_val = train_test_values["X_val"]
     X_test = train_test_values["X_test"]
     y_train = train_test_values["y_train"]
+    y_val = train_test_values["y_val"]
     y_test = train_test_values["y_test"]
 
     print("Data split into training and test sets.")
@@ -1058,20 +1008,23 @@ def prepare_data(kriging_dataset_path, coefficent_to_predict=None):
     print(f"X_test: {X_test}")
     print(f"y_test: {y_test}")
 
-    return X_train, y_train, X_test, y_test, X, coefficent, which_coefficent
+    return X_train, y_train, X_test, y_test, X_val, y_val, X, coefficent, which_coefficent
 
 
-def Kriging(X, X_train, y_train, theta, corr, poly, X_test, y_test, param_space):
+def Kriging(X, X_test, y_test, X_val, y_val, theta, corr, poly, X_train, y_train, param_space):
     """Train Kriging model."""
 
     non_constant_cols = np.any(X != X[0], axis=0)
     X_train_filtered = X_train[:, non_constant_cols]
+    X_val_filtered = X_val[:, non_constant_cols]
     X_test_filtered = X_test[:, non_constant_cols]
 
     # Funzione obiettivo da minimizzare
     def objective(params):
 
-        theta0, corr, poly = params  # Estrai i parametri dalla lista
+        theta0, corr, poly, opt, nugget, rho_regr, lambda_penalty = (
+            params  # Estrai i parametri dalla lista
+        )
 
         # Crea il modello con i parametri correnti
         model = KRG(theta0=[theta0], corr=corr, poly=poly, hyper_opt="Cobyla")
@@ -1081,20 +1034,35 @@ def Kriging(X, X_train, y_train, theta, corr, poly, X_test, y_test, param_space)
 
         # Predici i valori su X_test
         # y_pred = model.predict_values(X_test_filtered)
+        y_var = model.predict_variances(X_val_filtered)
 
-        rmse = compute_rms_error(model, X_test_filtered, y_test)
+        # Calcola l'errore RMSE
+        rmse = compute_rms_error(model, X_val_filtered, y_val)
 
-        return rmse  # L'obiettivo è minimizzare l'errore
+        # Penalizzazione sulla varianza
+        penalty = np.mean(y_var)
+
+        return rmse + lambda_penalty * penalty  # L'obiettivo è minimizzare l'errore
+
+    start_time = time.time()
 
     # Esegui l'ottimizzazione bayesiana
     result = gp_minimize(objective, param_space, n_calls=30, random_state=42)
 
+    end_time = time.time()
+    total_time = end_time - start_time
+
     # Stampa i migliori iperparametri trovati
-    print("Migliori iperparametri trovati:")
+    print("Best hyperparameters found:")
     print(f"Theta0: {result.x[0]}")
     print(f"Correlation: {result.x[1]}")
     print(f"Polynomial: {result.x[2]}")
-    print(f"Minimo RMSE ottenuto: {result.fun}")
+    print(f"Lowest RMSE obtained: {result.fun}")
+
+    # Stampa il tempo totale di ottimizzazione
+    print("\nTotal optimization time:")
+    print(f" {total_time:.2f} seconds")
+    print(f" {total_time / 60:.2f} minutes")
 
     input("Press ENTER to continue...")
 
@@ -1102,6 +1070,12 @@ def Kriging(X, X_train, y_train, theta, corr, poly, X_test, y_test, param_space)
 
     model.set_training_values(X_train_filtered, y_train)
     model.train()
+
+    rmse = compute_rms_error(model, X_test_filtered, y_test)
+
+    print(f"Final RMSE: {rmse}")
+
+    input("Press ENTER to continue...")
 
     # model = KRG(theta0=theta, corr=corr, poly=poly, print_global=False)
     # model.set_training_values(X_train_filtered, y_train)
@@ -1113,6 +1087,8 @@ def Kriging(X, X_train, y_train, theta, corr, poly, X_test, y_test, param_space)
 def MF_Kriging(
     X_test,
     y_test,
+    X_val,
+    y_val,
     param_space,
     X,
     Xt_lf,
@@ -1143,15 +1119,20 @@ def MF_Kriging(
     non_constant_cols = np.any(X != X[0], axis=0)
     Xt_lf_filtered = Xt_lf[:, non_constant_cols]
     Xt_mf_filtered = Xt_mf[:, non_constant_cols]
+    X_val_filtered = X_val[:, non_constant_cols]
     X_test_filtered = X_test[:, non_constant_cols]
 
     # Funzione obiettivo da minimizzare
     def objective(params):
 
-        theta0, corr, poly = params  # Estrai i parametri dalla lista
+        theta0, corr, poly, opt, nugget, rho_regr, lambda_penalty = (
+            params  # Estrai i parametri dalla lista
+        )
 
         # Crea il modello con i parametri correnti
-        model = MFK(theta0=[theta0], corr=corr, poly=poly, hyper_opt="Cobyla")
+        model = MFK(
+            theta0=[theta0], corr=corr, poly=poly, hyper_opt=opt, nugget=nugget, rho_regr=rho_regr
+        )
 
         # Add high-fidelity data if provided
         if Xt_hf is None and yt_hf is None:
@@ -1170,26 +1151,51 @@ def MF_Kriging(
 
         model.train()
 
+        print(X_val_filtered)
+
         # Predici i valori su X_test
         # y_pred = model.predict_values(X_test_filtered)
-        rmse = compute_rms_error(model, X_test_filtered, y_test)
+        y_var = model.predict_variances(X_val_filtered)
 
-        return rmse  # L'obiettivo è minimizzare l'errore
+        # Calcola l'errore RMSE
+        rmse = compute_rms_error(model, X_val_filtered, y_val)
+
+        # Penalizzazione sulla varianza
+        penalty = np.mean(y_var)
+
+        return rmse + lambda_penalty * penalty  # L'obiettivo è minimizzare l'errore
+
+    start_time = time.time()
 
     # Esegui l'ottimizzazione bayesiana
     result = gp_minimize(objective, param_space, n_calls=30, random_state=42)
 
+    end_time = time.time()
+    total_time = end_time - start_time
+
     # Stampa i migliori iperparametri trovati
-    print("Migliori iperparametri trovati:")
+    print("\nBest hyperparameters found:")
     print(f"Theta0: {result.x[0]}")
     print(f"Correlation: {result.x[1]}")
     print(f"Polynomial: {result.x[2]}")
-    print(f"Minimo RMSE ottenuto: {result.fun}")
+    print(f"Optimizer: {result.x[3]}")
+    print(f"Nugget: {result.x[4]}")
+    print(f"Rho regressor: {result.x[5]}")
+    print(f"Penalty weight (λ): {result.x[6]}")
+    print(f"Lowest RMSE obtained: {result.fun:.6f}")
+    print(f"Total optimization time: {total_time:.2f} seconds ({total_time / 60:.2f} minutes)\n")
 
     input("Press ENTER to continue...")
 
     # Create the Kriging model
-    model = MFK(theta0=theta, theta_bounds=[1e-06, 100.0], corr=corr, poly=poly, hyper_opt="TNC")
+    model = MFK(
+        theta0=[result.x[0]],
+        corr=result.x[1],
+        poly=result.x[2],
+        hyper_opt=result.x[3],
+        nugget=result.x[4],
+        rho_regr=result.x[5],
+    )
 
     # Add high-fidelity data if provided
     if Xt_hf is None and yt_hf is None:
@@ -1208,6 +1214,14 @@ def MF_Kriging(
 
     # Train the model
     model.train()
+
+    rmse = compute_rms_error(model, X_test_filtered, y_test)
+
+    print(f"Final RMSE: {rmse}")
+
+    # check overfitting
+
+    input("Press ENTER to continue...")
 
     return model, result.fun
 
@@ -1414,7 +1428,6 @@ def high_variance_new_doe(
     n_samples,
     fraction_of_new_samples,
     X_test,
-    sampled_array,
     ranges,
     output_filename,
     directory_path,
@@ -1489,7 +1502,6 @@ def sm_workflow(
     physical_domain_limits,
     fraction_of_new_samples=None,
     ranges=None,
-    sampled_array=None,
     coefficent_to_predict=None,
     X_LF=None,
     y_LF=None,
@@ -1511,11 +1523,15 @@ def sm_workflow(
 
     # Definisci lo spazio degli iperparametri
     param_space = [
-        Real(0.001, 0.01, name="theta0"),  # Theta0 (continuo)
+        Real(0.0001, 10, name="theta0"),  # Theta0 (continuo)
         Categorical(
             ["pow_exp", "abs_exp", "squar_exp", "matern52", "matern32"], name="corr"
         ),  # Tipo di correlazione
         Categorical(["constant", "linear", "quadratic"], name="poly"),  # Tipo di regressione
+        Categorical(["Cobyla", "TNC"], name="opt"),
+        Real(1e-12, 1e-4, name="nugget"),
+        Categorical(["constant", "linear", "quadratic"], name="rho_regr"),
+        Real(0.1, 1, name="lambda_penalty"),
     ]
 
     # Training based on fidelity_level
@@ -1527,13 +1543,25 @@ def sm_workflow(
             kriging_dataset_path = selected_paths_updated["first_dataset_path"]
 
             # Load and prepare the dataset
-            X_train, y_train, X_test, y_test, X, coefficent, which_coefficent = prepare_data(
-                kriging_dataset_path, coefficent_to_predict
+            X_train, y_train, X_test, y_test, X_val, y_val, X, coefficent, which_coefficent = (
+                prepare_data(kriging_dataset_path, coefficent_to_predict)
+            )
+
+            plot_test_and_train(
+                X,
+                ranges,
+                n_samples,
+                physical_domain_limits,
+                X_train,
+                X_test,
+                X_val,
+                plot_dim1="angleOfAttack",
+                plot_dim2="machNumber",
             )
 
             print(f"Training surrogate model...")
             model, rmse = Kriging(
-                X, X_train, y_train, theta, corr, poly, X_test, y_test, param_space
+                X, X_test, y_test, X_val, y_val, theta, corr, poly, X_train, y_train, param_space
             )
             # Prediction metrics and graphs
             prediction, y_pred, var = prediction_metrics_plots(
@@ -1564,7 +1592,6 @@ def sm_workflow(
                     n_samples,
                     fraction_of_new_samples,
                     X_test,
-                    sampled_array,
                     ranges,
                     output_filename,
                     directory_path,
@@ -1583,14 +1610,28 @@ def sm_workflow(
             kriging_dataset_path = selected_paths_updated["second_dataset_path"]
 
             # Load and prepare the dataset
-            X_train, y_train, X_test, y_test, X, coefficent, which_coefficent = prepare_data(
-                kriging_dataset_path, coefficent_to_predict
+            X_train, y_train, X_test, y_test, X_val, y_val, X, coefficent, which_coefficent = (
+                prepare_data(kriging_dataset_path, coefficent_to_predict)
+            )
+
+            plot_test_and_train(
+                X,
+                ranges,
+                n_samples,
+                physical_domain_limits,
+                X_train,
+                X_test,
+                X_val,
+                plot_dim1="angleOfAttack",
+                plot_dim2="machNumber",
             )
 
             print("Training  multi fidelity surrogate model...")
             model, rmse = MF_Kriging(
                 X_test,
                 y_test,
+                X_val,
+                y_val,
                 param_space,
                 X,
                 X_train_LF,
@@ -1631,7 +1672,6 @@ def sm_workflow(
                     n_samples,
                     fraction_of_new_samples,
                     X_test,
-                    sampled_array,
                     ranges,
                     output_filename,
                     directory_path,
@@ -1649,8 +1689,8 @@ def sm_workflow(
             # Third iteration
             kriging_dataset_path = selected_paths_updated["third_dataset_path"]
             # Load and prepare the dataset
-            X_train, y_train, X_test, y_test, X, coefficent, which_coefficent = prepare_data(
-                kriging_dataset_path, coefficent_to_predict
+            X_train, y_train, X_test, y_test, X_val, y_val, X, coefficent, which_coefficent = (
+                prepare_data(kriging_dataset_path, coefficent_to_predict)
             )
 
             print("Training final multi fidelity surrogate model...")
@@ -1697,7 +1737,7 @@ def sm_workflow(
     if fidelity_level == iteration_number:
         # Saving of the model
         print("Saving model...")
-        save_model(model, directory_path, base_model_name, model_extension)
+        save_model(model, directory_path, base_model_name, model_extension, which_coefficent)
 
     return (
         new_aeromap,
@@ -1906,7 +1946,7 @@ def su2_workflow(
 # =================== SAVE MODEL ===============
 
 
-def save_model(model, model_directory, base_model_name, model_extension):
+def save_model(model, model_directory, base_model_name, model_extension, coeff):
     """
     Salva il modello in un file unico nella directory specificata.
 
@@ -1927,7 +1967,7 @@ def save_model(model, model_directory, base_model_name, model_extension):
     # Trova un nome di file che non esista già
     counter = 1
     while os.path.exists(model_path):
-        model_name = f"{base_model_name}_{counter}{model_extension}"
+        model_name = f"{base_model_name}_{counter}{model_extension}_{coeff}"
         model_path = os.path.join(model_directory, model_name)
         counter += 1
 
@@ -2310,7 +2350,7 @@ def plot_coefficent_alpha_for_mach(
     plt.figure(figsize=(10, 6))
 
     # Define colors for each iteration
-    colors = ["black", "blue", "red", "green", "purple"]
+    colors = ["black", "blue", "red", "green", "purple", "orange", "yellow", "cyan", "magenta"]
 
     # Plot DoE points and lines for reference
     for i, mach in enumerate(selected_mach_numbers):
@@ -2416,30 +2456,87 @@ def plot_coefficent_alpha_for_mach(
     plt.show()
 
 
-def KRG_objective(params):
-    global best_model, best_rmse  # Usa variabili globali per mantenere il miglior modello
+def plot_test_and_train(
+    X,
+    ranges,
+    n_samples,
+    physical_domain_limits,
+    X_train=None,
+    X_test=None,
+    X_val=None,
+    plot_dim1="angleOfAttack",
+    plot_dim2="machNumber",
+):
 
-    theta0, corr, poly = params  # Estrai i parametri dalla lista
+    # DA MIGLIORARE XK SE PLOTTA LE ATRE DUE DIMENSIONI SI CAPISCE POCO, lo facciamo 3d?
+    """
+    Plot the Design of Experiment (DoE) with optional highlights and physical domain limits.
+    This version includes scatter plots for X_train, X_test, and X_val, with different symbols and labels.
 
-    # Crea il modello con i parametri correnti
-    model = KRG(theta0=[theta0], corr=corr, poly=poly, hyper_opt="Cobyla")
+    Parameters:
+        X (numpy.ndarray): Array of sampled data points where each row is a sample and each column corresponds to a variable.
+        ranges (dict): Dictionary specifying the range for each variable. Keys are variable names, values are lists with [min, max].
+        n_samples (int): Number of samples used in the DoE.
+        physical_domain_limits (dict): Dictionary containing physical constraints of the domain.
+        X_train (numpy.ndarray, optional): Training data points to highlight on the plot.
+        X_test (numpy.ndarray, optional): Test data points to highlight on the plot.
+        X_val (numpy.ndarray, optional): Validation data points to highlight on the plot.
+        plot_dim1 (str, optional): Name of the variable to plot on the x-axis. Defaults to "angleOfAttack".
+        plot_dim2 (str, optional): Name of the variable to plot on the y-axis. Defaults to "machNumber".
+    """
 
-    # Imposta i dati di training
-    model.set_training_values(X_train_l, y_train_l, name=0)  # Low-fidelity
-    model.set_training_values(X_train_h, y_train_h)  # High-fidelity
+    print(f"N of X_train val: {len(X_train)}")
+    print(f"N of X_val val: {len(X_val)}")
+    print(f"N of X_test val: {len(X_test)}")
 
-    # Allena il modello
-    model.train()
+    # Visualization of the results
+    print("Visualization of DOE: ")
+    xlimits = np.array(list(ranges.values()))
+    intervals = []
+    for i in range(len(xlimits)):
+        intervals.append(np.linspace(xlimits[i][0], xlimits[i][1], n_samples + 1))
 
-    # Predici i valori su X_test
-    y_pred = model.predict_values(X_test)
+    # Map plot dimensions to their indices
+    dim_keys = list(ranges.keys())
+    PLOT1 = dim_keys.index(plot_dim1)
+    PLOT2 = dim_keys.index(plot_dim2)
 
-    # Calcola l'errore quadratico medio (RMSE)
-    rmse = np.sqrt(np.mean((y_pred - y_test) ** 2))
+    fig, ax = plt.subplots(1)
 
-    # Se trovi un errore migliore, aggiorna il miglior modello
-    if rmse < best_rmse:
-        best_rmse = rmse
-        best_model = model  # Salva il miglior modello
+    # Plot the initial DOE samples
+    ax.plot(X[:, PLOT1], X[:, PLOT2], ".", label="DOE Samples")
 
-    return rmse  # L'obiettivo è minimizzare l'errore
+    # Plot X_train points if provided
+    if X_train is not None:
+        ax.plot(X_train[:, PLOT1], X_train[:, PLOT2], "go", label="X_train")  # Green circles
+
+    # Plot X_test and X_val points with the same symbol and label
+    if X_test is not None:
+        ax.plot(X_test[:, PLOT1], X_test[:, PLOT2], "bx", label="X_test")  # Blue crosses
+    if X_val is not None:
+        ax.plot(
+            X_val[:, PLOT1], X_val[:, PLOT2], "ro", label="X_val"  # Blue crosses, same as X_test
+        )
+
+    # Plot physical domain limits
+    p1 = physical_domain_limits["p1"]
+    p2 = physical_domain_limits["p2"]
+
+    x_a = [p1[0], p2[0]]
+    y_a = [p1[1], p2[1]]
+    plt.plot(x_a, y_a, linestyle="-.", color="black", marker="o", mfc="none")
+
+    p3 = physical_domain_limits["p3"]
+    p4 = physical_domain_limits["p4"]
+
+    x_b = [p3[0], p4[0]]
+    y_b = [p3[1], p4[1]]
+    plt.plot(x_b, y_b, linestyle="-.", color="black", marker="o", mfc="none")
+
+    ax.set_xlabel(f"Dimension {PLOT1 + 1}: {plot_dim1}")
+    ax.set_ylabel(f"Dimension {PLOT2 + 1}: {plot_dim2}")
+    ax.legend(loc="best")
+
+    plt.show()
+
+    return
